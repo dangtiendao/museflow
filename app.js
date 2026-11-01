@@ -116,6 +116,58 @@
    * @param {string} [prefix='id'] - Tiền tố đại diện cho loại đối tượng (ví dụ: 'node', 'edge', 'group').
    * @returns {string} Chuỗi định danh dạng "{prefix}-{uuid}".
    */
+  /**
+   * Lấy tiêu đề hiển thị đã bản địa hóa của một loại node (theo i18n).
+   *
+   * @param {string} type - Loại node (ví dụ: 'prompt', 'generateImage').
+   * @returns {string} Tiêu đề đã dịch hoặc tiêu đề mặc định.
+   */
+  function getNodeTitle(type) {
+    if (window.t && type) {
+      const translated = window.t(`nodes.definitions.${type}.title`);
+      if (translated && !translated.startsWith('nodes.definitions.')) return translated;
+    }
+    return nodeDefs[type]?.title || type;
+  }
+
+  /**
+   * Lấy nhãn cổng kết nối đã bản địa hóa.
+   *
+   * @param {string} nodeType - Loại node.
+   * @param {Object} port - Cổng { id, label, type }.
+   * @param {boolean} isInput - true nếu là cổng vào.
+   * @returns {string} Nhãn hiển thị của cổng.
+   */
+  function getPortLabel(nodeType, port, isInput) {
+    if (!window.t || !port) return port?.label || '';
+    if (nodeType === 'references' && isInput && port.id.startsWith('reference')) {
+      const num = port.id.replace('reference', '');
+      return window.t('nodes.definitions.references.inRef', { num }) || port.label;
+    }
+    if (nodeType === 'timeline' && isInput && port.id.startsWith('clip')) {
+      const num = port.id.replace('clip', '');
+      return window.t('nodes.definitions.timeline.inClip', { num }) || port.label;
+    }
+    const keyMap = {
+      generateImage: isInput ? { prompt: 'inPrompt', negative: 'inNegative', reference: 'inReference' } : { image: 'outImage' },
+      generateVideo: isInput ? { prompt: 'inPrompt', negative: 'inNegative', reference: 'inReference' } : { video: 'outVideo', endFrame: 'outEndFrame' },
+      textAppend: isInput ? { text: 'inText' } : { text: 'outText' },
+      textConcat: isInput ? { text: 'inText' } : { text: 'outText' },
+      imageInput: { image: 'outImage' },
+      imageResize: isInput ? { image: 'inImage' } : { image: 'outImage' },
+      preview: { media: 'inMedia' },
+      references: { image: 'outImages' },
+      prompt: { text: 'text' },
+      negativePrompt: { text: 'text' }
+    };
+    const mapped = keyMap[nodeType]?.[port.id];
+    if (mapped) {
+      const res = window.t(`nodes.definitions.${nodeType}.${mapped}`);
+      if (res && !res.startsWith('nodes.definitions.')) return res;
+    }
+    return port.label;
+  }
+
   function uid(prefix='id') { return `${prefix}-${crypto.randomUUID()}`; }
 
   /**
@@ -155,7 +207,7 @@
     state.nodes=previous.nodes;state.edges=previous.edges;state.groups=previous.groups||[];state.notes=previous.notes||[];state.settings=previous.settings;
     state.selectedNodeIds=[];state.selectedNodeId=null;state.selectedEdgeIds=[];state.connectingFrom=null;
     normalizeSavedGraph();syncSettingsUI();render();
-    setRunStatus(`Undid: ${previous.label}.`,'ok');
+    setRunStatus('status.undidAction','ok',{label:previous.label});
   }
 
   /**
@@ -246,7 +298,7 @@
   function generationNodeTitle(node) {
     const title = node.data?.customName?.trim();
     if (title) return title;
-    const typeTitle = nodeDefs[node.type]?.title || 'Generate';
+    const typeTitle = getNodeTitle(node.type);
     const sameType = state.nodes.filter(item => item.type === node.type);
     const number = Math.max(1, sameType.findIndex(item => item.id === node.id) + 1);
     const scene = node.data?.sceneLabel?.trim();
@@ -318,9 +370,9 @@
    */
   function connectionChoices(from){
     const source=nodeById(from.nodeId),output=nodeDefs[source?.type]?.outputs?.find(port=>port.id===from.portId);if(!source||!output)return{existing:[],create:[]};
-    const existing=[];for(const target of state.nodes){if(target.id===source.id)continue;for(const input of nodeDefs[target.type]?.inputs||[]){if(!portCompatible(from,target.id,input.id))continue;if(target.type==='timeline'&&getIncoming(target.id,input.id).length)continue;if(wouldCreateCycle(source.id,target.id,isMultiInput(target.type,input.id)?null:input.id))continue;existing.push({kind:'existing',targetId:target.id,targetPort:input.id,label:`${nodeDefs[target.type].title} · ${input.label}${target.data?.dockOnly?' (Timeline dock)':''}`});}}
-    const candidates=output.type==='image'?[['references','reference1','References · image 1'],['preview','media','Preview · image'],['imageResize','image','Image Resize'],['generateImage','reference','Generate Image · reference'],['generateVideo','reference','Generate Video · reference']]:output.type==='video'?[['preview','media','Preview · video'],['timeline','clip1','Timeline · add clip']]:output.type==='text'?[['generateImage','prompt','Generate Image · prompt'],['generateVideo','prompt','Generate Video · prompt'],['textAppend','text','Text Append'],['textConcat','text','Text Merge · text']]:output.type==='negative'?[['generateImage','negative','Generate Image · negative'],['generateVideo','negative','Generate Video · negative']]:[];
-    const create=candidates.map(([type,port,label])=>({kind:'create',type,targetPort:port,label}));return{existing,create};
+    const existing=[];for(const target of state.nodes){if(target.id===source.id)continue;for(const input of nodeDefs[target.type]?.inputs||[]){if(!portCompatible(from,target.id,input.id))continue;if(target.type==='timeline'&&getIncoming(target.id,input.id).length)continue;if(wouldCreateCycle(source.id,target.id,isMultiInput(target.type,input.id)?null:input.id))continue;existing.push({kind:'existing',targetId:target.id,targetPort:input.id,label:`${getNodeTitle(target.type)} · ${getPortLabel(target.type,input,true)}${target.data?.dockOnly?(window.t?window.t('menu.connectionPicker.timelineDockSuffix'):' (Timeline dock)'):''}`});}}
+    const candidates=output.type==='image'?[['references','reference1'],['preview','media'],['imageResize','image'],['generateImage','reference'],['generateVideo','reference']]:output.type==='video'?[['preview','media'],['timeline','clip1']]:output.type==='text'?[['generateImage','prompt'],['generateVideo','prompt'],['textAppend','text'],['textConcat','text']]:output.type==='negative'?[['generateImage','negative'],['generateVideo','negative']]:[];
+    const create=candidates.map(([type,port])=>({kind:'create',type,targetPort:port,label:`${getNodeTitle(type)}${port?` · ${getPortLabel(type,{id:port,label:port},true)}`:''}`}));return{existing,create};
   }
 
   /**
@@ -332,14 +384,14 @@
    * @param {number} y - Tọa độ màn hình Y nơi thả chuột.
    */
   function openConnectionPicker(from,x,y){
-    const output=nodeDefs[nodeById(from.nodeId)?.type]?.outputs?.find(port=>port.id===from.portId),choices=connectionChoices(from),menu=$('#canvasMenu'),viewport=$('#viewport').getBoundingClientRect();
+    const source=nodeById(from.nodeId),output=nodeDefs[source?.type]?.outputs?.find(port=>port.id===from.portId),choices=connectionChoices(from),menu=$('#canvasMenu'),viewport=$('#viewport').getBoundingClientRect();
     if(!output)return;state.pendingConnection={from:{...from},x:(x-viewport.left-state.panX)/state.zoom,y:(y-viewport.top-state.panY)/state.zoom,choices:[...choices.existing,...choices.create]};menu.innerHTML='';delete menu.dataset.nodeId;delete menu.dataset.edgeId;
-    const title=document.createElement('div');title.className='menu-caption';title.textContent=`Send ${output.label} · ${output.type}`;menu.appendChild(title);
+    const title=document.createElement('div');title.className='menu-caption';title.textContent=window.t?window.t('menu.connectionPicker.sendOutput',{label:getPortLabel(source?.type,output,false),type:output.type}):`Send ${output.label} · ${output.type}`;menu.appendChild(title);
     const addSection=label=>{const section=document.createElement('div');section.className='menu-caption';section.textContent=label;menu.appendChild(section);};
     const addChoice=(choice,index)=>{const button=document.createElement('button');button.type='button';button.textContent=choice.label;button.dataset.contextAction='connect-choice';button.dataset.choice=String(index);menu.appendChild(button);};
-    if(choices.existing.length){addSection('Connect existing node');choices.existing.forEach((choice,index)=>addChoice(choice,index));}
-    if(choices.create.length){addSection('Create a compatible node');choices.create.forEach((choice,index)=>addChoice(choice,choices.existing.length+index));}
-    if(!state.pendingConnection.choices.length){const empty=document.createElement('div');empty.className='menu-caption';empty.textContent='No compatible node actions for this output.';menu.appendChild(empty);}
+    if(choices.existing.length){addSection(window.t?window.t('menu.connectionPicker.connectExisting'):'Connect existing node');choices.existing.forEach((choice,index)=>addChoice(choice,index));}
+    if(choices.create.length){addSection(window.t?window.t('menu.connectionPicker.createCompatible'):'Create a compatible node');choices.create.forEach((choice,index)=>addChoice(choice,choices.existing.length+index));}
+    if(!state.pendingConnection.choices.length){const empty=document.createElement('div');empty.className='menu-caption';empty.textContent=window.t?window.t('menu.connectionPicker.noCompatible'):'No compatible node actions for this output.';menu.appendChild(empty);}
     menu.classList.remove('hidden');menu.style.left=`${Math.max(8,Math.min(x,innerWidth-260))}px`;menu.style.top=`${Math.max(8,Math.min(y,innerHeight-420))}px`;
   }
 
@@ -352,11 +404,11 @@
     const pending=state.pendingConnection,choice=pending?.choices?.[index];state.pendingConnection=null;closeCanvasMenu();
     if(!pending||!choice)return;
     if(choice.kind==='existing'){
-      state.connectingFrom=pending.from;connect(choice.targetId,choice.targetPort);selectNode(choice.targetId,{add:true});setRunStatus(`Connected to ${choice.label}.`,'ok');return;
+      state.connectingFrom=pending.from;connect(choice.targetId,choice.targetPort);selectNode(choice.targetId,{add:true});setRunStatus('status.connectedTo','ok',{label:choice.label});return;
     }
     const before=new Set(state.nodes.map(node=>node.id));addNode(choice.type,pending.x-135,pending.y-80);
-    const target=state.nodes.find(node=>!before.has(node.id))||state.nodes.find(node=>node.type===choice.type&&node.data?.dockOnly===false&&choice.type==='timeline');if(!target||target.type!==choice.type){setRunStatus('Could not create the selected node.','error');return;}
-    state.connectingFrom=pending.from;connect(target.id,choice.targetPort);selectNode(target.id);setRunStatus(`${nodeDefs[target.type].title} created and connected to ${choice.label.split(' · ').at(-1)}.`,'ok');
+    const target=state.nodes.find(node=>!before.has(node.id))||state.nodes.find(node=>node.type===choice.type&&node.data?.dockOnly===false&&choice.type==='timeline');if(!target||target.type!==choice.type){setRunStatus('status.createNodeFailed','error');return;}
+    state.connectingFrom=pending.from;connect(target.id,choice.targetPort);selectNode(target.id);setRunStatus('status.nodeCreatedAndConnected','ok',{type:getNodeTitle(target.type),label:choice.label.split(' · ').at(-1)});
   }
 
   /**
@@ -572,7 +624,7 @@
     let references=state.nodes.find(node=>node.type==='references');if(!references){const minX=Math.min(80,...state.nodes.filter(node=>!node.data?.dockOnly).map(node=>node.x));references=makeNode('references',minX-360,baseY);references.data={};state.nodes.push(references);made++;}syncReferenceFanOut(references);
     const timeline=ensureDockTimeline();timeline.data.clipOrder=createdVideos.map(item=>item.node.id);timeline.data.durations=timeline.data.durations||{};createdVideos.forEach(({node,seconds})=>{timeline.data.durations[node.id]=seconds;});
     $('#scriptModal').classList.add('hidden');render();saveState();if($('#timelineDock').classList.contains('collapsed'))toggleTimeline();
-    setRunStatus(`Created ${scenes.length} scenes · ${made} nodes · ${createdVideos.length} video clips ordered on the Timeline.`,'ok');
+    setRunStatus('status.scenesCreated','ok',{scenes:scenes.length,nodes:made,clips:createdVideos.length});
   }
 
   /**
@@ -646,7 +698,7 @@
     if(moved&&from.direction==='in'){
       const output=nearestCompatibleOutput(e.clientX,e.clientY,from);
       if(output){state.connectingFrom={nodeId:output.dataset.node,portId:output.dataset.port};connect(from.nodeId,from.portId);}
-      else{const rect=$('#viewport').getBoundingClientRect(),emptyCanvas=!document.elementFromPoint(e.clientX,e.clientY)?.closest('.node'),inside=e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom,type=from.portType==='negative'?'negativePrompt':'prompt';if(inside&&emptyCanvas){addNode(type,(e.clientX-rect.left-state.panX)/state.zoom-135,(e.clientY-rect.top-state.panY)/state.zoom-80);const created=state.nodes.at(-1);state.connectingFrom={nodeId:created.id,portId:'text'};connect(from.nodeId,from.portId);setRunStatus(`${nodeDefs[type].title} created and connected.`,'ok');}else setRunStatus('Drop on an output port or on empty canvas to create a prompt node.','warn');}
+      else{const rect=$('#viewport').getBoundingClientRect(),emptyCanvas=!document.elementFromPoint(e.clientX,e.clientY)?.closest('.node'),inside=e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom,type=from.portType==='negative'?'negativePrompt':'prompt';if(inside&&emptyCanvas){addNode(type,(e.clientX-rect.left-state.panX)/state.zoom-135,(e.clientY-rect.top-state.panY)/state.zoom-80);const created=state.nodes.at(-1);state.connectingFrom={nodeId:created.id,portId:'text'};connect(from.nodeId,from.portId);setRunStatus('status.nodeCreatedConnectedGeneral','ok',{type:getNodeTitle(type)});}else setRunStatus('Drop on an output port or on empty canvas to create a prompt node.','warn');}
       state.suppressPortClick=true;setTimeout(()=>state.suppressPortClick=false,80);scheduleDrawEdges();return;
     }
     if(moved){
@@ -739,10 +791,10 @@
     el.style.top = `${n.y}px`;
     const head = document.createElement('div');
     head.className = 'node-header';
-    const title=document.createElement('span');title.className='node-title';title.textContent=['generateImage','generateVideo'].includes(n.type)?generationNodeTitle(n):(n.data.customName||`${nodeDefs[n.type].title}${n.data.sceneLabel?` · ${n.data.sceneLabel}`:''}`);title.title=title.textContent;
-    const rename=document.createElement('button');rename.type='button';rename.className='node-rename';rename.title='Rename node';rename.setAttribute('aria-label',`Rename ${title.textContent}`);rename.textContent='✎';
+    const title=document.createElement('span');title.className='node-title';title.textContent=['generateImage','generateVideo'].includes(n.type)?generationNodeTitle(n):(n.data.customName||`${getNodeTitle(n.type)}${n.data.sceneLabel?` · ${n.data.sceneLabel}`:''}`);title.title=title.textContent;
+    const rename=document.createElement('button');rename.type='button';rename.className='node-rename';rename.title=window.t('nodes.header.renameNode');rename.setAttribute('aria-label',window.t('nodes.header.renameAria',{name:title.textContent}));rename.textContent='✎';
     rename.onclick=event=>{event.stopPropagation();openNodeRenameModal(n.id);};
-    const close=document.createElement('span');close.className='node-close';close.title='Delete';close.textContent='×';head.append(title,rename,close);
+    const close=document.createElement('span');close.className='node-close';close.title=window.t('nodes.header.deleteTitle');close.textContent='×';head.append(title,rename,close);
     head.querySelector('.node-close').onclick = (e) => { e.stopPropagation(); removeNode(n.id); };
     setupDrag(head, n, el);
     el.appendChild(head);
@@ -755,63 +807,63 @@
       ta.value = n.data.text || '';
       ta.oninput = () => n.data.text = ta.value;
       body.appendChild(ta);
-      if(n.type==='negativePrompt'){const hint=document.createElement('div');hint.className='hint';hint.textContent='Connect to the negative input on an image or video node.';body.appendChild(hint);}
-      if(n.type==='textAppend'){const hint=document.createElement('div');hint.className='hint';hint.textContent='Appends this text to an incoming prompt.';body.appendChild(hint);}
+      if(n.type==='negativePrompt'){const hint=document.createElement('div');hint.className='hint';hint.textContent=window.t('nodes.hints.negativePrompt');body.appendChild(hint);}
+      if(n.type==='textAppend'){const hint=document.createElement('div');hint.className='hint';hint.textContent=window.t('nodes.hints.textAppend');body.appendChild(hint);}
     }
 
     if(n.type==='textConcat'){
-      const separator=document.createElement('input');separator.value=n.data.separator??', ';separator.placeholder='Separator';separator.oninput=()=>n.data.separator=separator.value;body.append('Join connected text inputs with:',separator);
+      const separator=document.createElement('input');separator.value=n.data.separator??', ';separator.placeholder=window.t('nodes.hints.textConcatSeparator');separator.oninput=()=>n.data.separator=separator.value;body.append(window.t('nodes.hints.textConcatJoin'),separator);
     }
 
     if (n.type === 'imageInput') {
       if (n.data.localDataUrl) {
         const img = document.createElement('img'); img.src = n.data.localDataUrl; body.appendChild(img);
       } else {
-        const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'No image selected'; body.appendChild(empty);
+        const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = window.t('nodes.hints.imageInputEmpty'); body.appendChild(empty);
       }
       const label = document.createElement('label');
-      label.className = 'small-btn'; label.textContent = 'Choose image';
+      label.className = 'small-btn'; label.textContent = window.t('nodes.hints.imageInputChoose');
       const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
       input.onchange = () => {
         const f = input.files && input.files[0]; if (!f) return;
         const r = new FileReader(); r.onload = () => { n.data.localDataUrl = String(r.result || ''); render(); }; r.readAsDataURL(f);
       };
       label.appendChild(input); body.appendChild(label);
-      const hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = 'Connect this image to Generate Image → reference.'; body.appendChild(hint);
+      const hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = window.t('nodes.hints.imageInputHint'); body.appendChild(hint);
     }
 
     if(n.type==='references'){
-      const incoming=(nodeDefs.references.inputs||[]).reduce((count,input)=>count+getIncoming(n.id,input.id).length,0),badge=document.createElement('span');badge.className='ref-badge';badge.textContent=`${incoming} image source${incoming===1?'':'s'} connected`;body.appendChild(badge);
-      const list=document.createElement('div');list.className='references-input-list';(nodeDefs.references.inputs||[]).forEach(input=>{const row=document.createElement('div');row.textContent=`${input.label} · connect image source`;list.appendChild(row);});body.appendChild(list);
-      const hint=document.createElement('div');hint.className='hint';hint.textContent='All connected images are sent to every connected Generate Image and Generate Video node.';body.appendChild(hint);
+      const incoming=(nodeDefs.references.inputs||[]).reduce((count,input)=>count+getIncoming(n.id,input.id).length,0),badge=document.createElement('span');badge.className='ref-badge';badge.textContent=window.t('nodes.hints.referencesConnectedBadge',{count:incoming});body.appendChild(badge);
+      const list=document.createElement('div');list.className='references-input-list';(nodeDefs.references.inputs||[]).forEach(input=>{const row=document.createElement('div');row.textContent=window.t('nodes.hints.referencesRow',{label:input.label});list.appendChild(row);});body.appendChild(list);
+      const hint=document.createElement('div');hint.className='hint';hint.textContent=window.t('nodes.hints.referencesHint');body.appendChild(hint);
     }
 
     if (n.type === 'generateImage') {
       const controls = document.createElement('div'); controls.className = 'gen-controls';
       const size = document.createElement('select');
-      [['1:1','Square'],['16:9','Landscape 16:9'],['9:16','Portrait 9:16'],['4:3','Landscape 4:3'],['3:4','Portrait 3:4']].forEach(([v,label]) => { const o=document.createElement('option'); o.value=v; o.textContent=label; size.appendChild(o); });
+      [['1:1',window.t('nodes.options.aspectRatio.square')],['16:9',window.t('nodes.options.aspectRatio.landscape16_9')],['9:16',window.t('nodes.options.aspectRatio.portrait9_16')],['4:3',window.t('nodes.options.aspectRatio.landscape4_3')],['3:4',window.t('nodes.options.aspectRatio.portrait3_4')]].forEach(([v,label]) => { const o=document.createElement('option'); o.value=v; o.textContent=label; size.appendChild(o); });
       size.value = ['1:1','16:9','9:16','4:3','3:4'].includes(n.data.size)?n.data.size:'1:1'; size.onchange = () => n.data.size = size.value;
       const model = document.createElement('input'); model.value = n.data.model || 'muse-image'; model.placeholder = 'muse-image'; model.oninput = () => n.data.model = model.value;
       controls.append(size, model); body.appendChild(controls);
       const st = document.createElement('div'); st.className = `status ${n.data.status || 'idle'}`; st.textContent = `${n.data.status || 'idle'}${n.data.error ? ' · ' + n.data.error : ''}`; body.appendChild(st);
-      if(n.data.asset?.width&&n.data.asset?.height){const dimensions=document.createElement('div');dimensions.className=`hint ${n.data.asset.sizeMismatch?'error':''}`;dimensions.textContent=`Requested ${n.data.asset.requestedSize||n.data.size} · actual ${n.data.asset.width} × ${n.data.asset.height}${n.data.asset.sizeMismatch?' (Muse returned a different ratio)':''}`;body.appendChild(dimensions);}
+      if(n.data.asset?.width&&n.data.asset?.height){const dimensions=document.createElement('div');dimensions.className=`hint ${n.data.asset.sizeMismatch?'error':''}`;dimensions.textContent=window.t('nodes.hints.requestedActual',{req:n.data.asset.requestedSize||n.data.size,actual:`${n.data.asset.width} × ${n.data.asset.height}`})+(n.data.asset.sizeMismatch?window.t('nodes.hints.sizeMismatchRatio'):'');body.appendChild(dimensions);}
       if (n.data.asset?.url) { const a=document.createElement('a'); a.href=n.data.asset.url; a.target='_blank'; a.className='image-link'; const img=document.createElement('img'); img.src=n.data.asset.url; a.appendChild(img); body.appendChild(a); }
-      const promptCount=getIncoming(n.id,'prompt').length;if(promptCount>1){const b=document.createElement('span');b.className='ref-badge';b.textContent=`${promptCount} prompt sources combined`;body.appendChild(b);}
-      const referenceCount=getIncoming(n.id,'reference').length;if(referenceCount){const b=document.createElement('span');b.className='ref-badge';b.textContent=`${referenceCount} reference image${referenceCount===1?'':'s'} connected`;body.appendChild(b);}
+      const promptCount=getIncoming(n.id,'prompt').length;if(promptCount>1){const b=document.createElement('span');b.className='ref-badge';b.textContent=window.t('nodes.hints.promptSourcesBadge',{count:promptCount});body.appendChild(b);}
+      const referenceCount=getIncoming(n.id,'reference').length;if(referenceCount){const b=document.createElement('span');b.className='ref-badge';b.textContent=window.t('nodes.hints.referenceImagesBadge',{count:referenceCount});body.appendChild(b);}
       body.appendChild(createNodeRunActions(n));
     }
 
     if(n.type==='generateVideo'){
       const controls=document.createElement('div');controls.className='gen-controls video-controls';
-      const ratio=document.createElement('select');[['16:9','Landscape 16:9'],['9:16','Portrait 9:16'],['1:1','Square']].forEach(([v,label])=>{const o=document.createElement('option');o.value=v;o.textContent=label;ratio.appendChild(o);});ratio.value=['16:9','9:16','1:1'].includes(n.data.size)?n.data.size:'16:9';ratio.onchange=()=>n.data.size=ratio.value;
+      const ratio=document.createElement('select');[['16:9',window.t('nodes.options.aspectRatio.landscape16_9')],['9:16',window.t('nodes.options.aspectRatio.portrait9_16')],['1:1',window.t('nodes.options.aspectRatio.square')]].forEach(([v,label])=>{const o=document.createElement('option');o.value=v;o.textContent=label;ratio.appendChild(o);});ratio.value=['16:9','9:16','1:1'].includes(n.data.size)?n.data.size:'16:9';ratio.onchange=()=>n.data.size=ratio.value;
       const duration=document.createElement('select');[5,6,8,10].forEach(v=>{const o=document.createElement('option');o.value=String(v);o.textContent=`${v}s`;duration.appendChild(o);});duration.value=String(n.data.duration||5);duration.onchange=()=>n.data.duration=Number(duration.value);
       controls.append(ratio,duration);body.appendChild(controls);
-      const continuityLabel=document.createElement('label');continuityLabel.className='continuity-toggle';continuityLabel.htmlFor=`continuity-${n.id}`;continuityLabel.onpointerdown=event=>event.stopPropagation();const continuity=document.createElement('input');continuity.id=`continuity-${n.id}`;continuity.type='checkbox';continuity.checked=Boolean(n.data.continuity);continuity.onchange=()=>{n.data.continuity=continuity.checked;scheduleAutoSave();};continuityLabel.append(continuity,document.createTextNode('Use previous clip end frame as start reference'));body.appendChild(continuityLabel);
-      if(n.data.endFrame?.url){const frame=document.createElement('img');frame.className='end-frame-thumb';frame.src=n.data.endFrame.url;frame.alt='Extracted final frame for continuity';frame.title='Video end frame · connect “end frame” to the next video reference';body.appendChild(frame);}
+      const continuityLabel=document.createElement('label');continuityLabel.className='continuity-toggle';continuityLabel.htmlFor=`continuity-${n.id}`;continuityLabel.onpointerdown=event=>event.stopPropagation();const continuity=document.createElement('input');continuity.id=`continuity-${n.id}`;continuity.type='checkbox';continuity.checked=Boolean(n.data.continuity);continuity.onchange=()=>{n.data.continuity=continuity.checked;scheduleAutoSave();};continuityLabel.append(continuity,document.createTextNode(window.t('nodes.hints.useContinuity')));body.appendChild(continuityLabel);
+      if(n.data.endFrame?.url){const frame=document.createElement('img');frame.className='end-frame-thumb';frame.src=n.data.endFrame.url;frame.alt=window.t('nodes.hints.endFrameAlt');frame.title=window.t('nodes.hints.endFrameTitle');body.appendChild(frame);}
       const status=document.createElement('div');status.className=`status ${n.data.status||'idle'}`;status.textContent=`${n.data.status||'idle'}${n.data.error?' · '+n.data.error:''}`;body.appendChild(status);
-      if(n.data.asset?.width&&n.data.asset?.height){const dimensions=document.createElement('div');dimensions.className=`hint ${n.data.asset.sizeMismatch?'error':''}`;dimensions.textContent=`Requested ${n.data.asset.requestedSize||n.data.size} · actual ${n.data.asset.width} × ${n.data.asset.height}${n.data.asset.sizeMismatch?' (Muse returned a different ratio)':''}`;body.appendChild(dimensions);}
+      if(n.data.asset?.width&&n.data.asset?.height){const dimensions=document.createElement('div');dimensions.className=`hint ${n.data.asset.sizeMismatch?'error':''}`;dimensions.textContent=window.t('nodes.hints.requestedActual',{req:n.data.asset.requestedSize||n.data.size,actual:`${n.data.asset.width} × ${n.data.asset.height}`})+(n.data.asset.sizeMismatch?window.t('nodes.hints.sizeMismatchRatio'):'');body.appendChild(dimensions);}
       if(n.data.asset?.url){const video=document.createElement('video');video.controls=true;video.preload='metadata';video.src=n.data.asset.url;body.appendChild(video);}
-      const timelineDrag=document.createElement('button');timelineDrag.type='button';timelineDrag.className='video-timeline-drag';timelineDrag.draggable=true;timelineDrag.innerHTML='<span aria-hidden="true">⠿</span> Drag output to Timeline';timelineDrag.title='Drag this output to the timeline';timelineDrag.ondragstart=event=>{event.dataTransfer.setData('application/x-museflow-video-node',n.id);event.dataTransfer.setData('text/plain',n.id);event.dataTransfer.effectAllowed='copy';};timelineDrag.onclick=event=>{event.stopPropagation();addTimelineClip(ensureDockTimeline(),n.id);};body.appendChild(timelineDrag);
+      const timelineDrag=document.createElement('button');timelineDrag.type='button';timelineDrag.className='video-timeline-drag';timelineDrag.draggable=true;timelineDrag.innerHTML='<span aria-hidden="true">⠿</span> '+window.t('nodes.hints.dragToTimeline');timelineDrag.title=window.t('nodes.hints.dragToTimelineTitle');timelineDrag.ondragstart=event=>{event.dataTransfer.setData('application/x-museflow-video-node',n.id);event.dataTransfer.setData('text/plain',n.id);event.dataTransfer.effectAllowed='copy';};timelineDrag.onclick=event=>{event.stopPropagation();addTimelineClip(ensureDockTimeline(),n.id);};body.appendChild(timelineDrag);
       body.appendChild(createNodeRunActions(n));
     }
     if(n.type==='timeline')renderTimelineBody(n,body);
@@ -821,17 +873,17 @@
       const imageUrl=incoming?.data?.localDataUrl||incoming?.data?.asset?.url||'';
       const width=document.createElement('input');width.type='number';width.min='1';width.max='4096';width.value=n.data.width||1024;width.title='Width';width.oninput=()=>n.data.width=clampDimension(width.value);
       const height=document.createElement('input');height.type='number';height.min='1';height.max='4096';height.value=n.data.height||1024;height.title='Height';height.oninput=()=>n.data.height=clampDimension(height.value);
-      const fit=document.createElement('select');[['cover','Crop to fill'],['contain','Fit inside'],['stretch','Stretch']].forEach(([v,label])=>{const o=document.createElement('option');o.value=v;o.textContent=label;fit.appendChild(o);});fit.value=n.data.fit||'cover';fit.onchange=()=>n.data.fit=fit.value;
+      const fit=document.createElement('select');[['cover',window.t('nodes.options.fit.cover')],['contain',window.t('nodes.options.fit.contain')],['stretch',window.t('nodes.options.fit.stretch')]].forEach(([v,label])=>{const o=document.createElement('option');o.value=v;o.textContent=label;fit.appendChild(o);});fit.value=n.data.fit||'cover';fit.onchange=()=>n.data.fit=fit.value;
       body.append(width,height,fit);
       const out=document.createElement('canvas');out.className='resize-preview';
       if(imageUrl){const image=new Image();image.onload=()=>drawResized(image,out,n.data);image.src=imageUrl;}
       body.appendChild(out);
-      const download=document.createElement('button');download.type='button';download.className='small-btn';download.textContent='Download resized image';download.disabled=!imageUrl;download.onclick=()=>{out.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`museflow-${n.data.width}x${n.data.height}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});};body.appendChild(download);
+      const download=document.createElement('button');download.type='button';download.className='small-btn';download.textContent=window.t('nodes.hints.downloadResized');download.disabled=!imageUrl;download.onclick=()=>{out.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`museflow-${n.data.width}x${n.data.height}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});};body.appendChild(download);
     }
 
     if (n.type === 'preview') {
       if (n.data.asset?.url) { if(n.data.asset.kind==='video'){const video=document.createElement('video');video.controls=true;video.src=n.data.asset.url;body.appendChild(video);}else{const a=document.createElement('a');a.href=n.data.asset.url;a.target='_blank';const img=document.createElement('img');img.src=n.data.asset.url;a.appendChild(img);body.appendChild(a);} }
-      else { const empty=document.createElement('div'); empty.className='empty preview-empty'; empty.textContent='Run workflow'; body.appendChild(empty); }
+      else { const empty=document.createElement('div'); empty.className='empty preview-empty'; empty.textContent=window.t('nodes.hints.previewEmpty'); body.appendChild(empty); }
     }
 
     el.appendChild(body);
@@ -851,14 +903,14 @@
     const actions=document.createElement('div');actions.className='node-generation-actions';
     const button=document.createElement('button');button.type='button';button.className='node-run-button primary';
     if(node.data.status==='running'){
-      button.classList.add('stop');button.textContent='■ Stop';button.disabled=false;button.title='Stop this generation';button.dataset.stopGeneration=node.id;
+      button.classList.add('stop');button.textContent=window.t('nodes.actions.stop');button.disabled=false;button.title=window.t('nodes.actions.stopTitle');button.dataset.stopGeneration=node.id;
     }else{
-      button.textContent=`▶ Run ${node.type==='generateVideo'?'Video':'Image'}`;button.disabled=state.isRunning;
+      button.textContent=node.type==='generateVideo'?window.t('nodes.actions.runVideo'):window.t('nodes.actions.runImage');button.disabled=state.isRunning;
       button.onclick=event=>{event.stopPropagation();runSingleNode(node.id);};
     }
     actions.appendChild(button);
     if(node.type==='generateVideo'){
-      const again=document.createElement('button');again.type='button';again.className='node-run-button again';again.textContent='↻ Again';again.title='Regenerate this video with stronger adherence to the connected prompt and references';again.disabled=state.isRunning;
+      const again=document.createElement('button');again.type='button';again.className='node-run-button again';again.textContent=window.t('nodes.actions.again');again.title=window.t('nodes.actions.againTitle');again.disabled=state.isRunning;
       again.onclick=event=>{event.stopPropagation();executeGenerationNode(node.id,{again:true});};actions.appendChild(again);
     }
     return actions;
@@ -875,20 +927,22 @@
     const def = nodeDefs[n.type];
     (def.inputs || []).forEach((p, i) => {
       const y = ['generateImage','generateVideo'].includes(n.type) ? 52+i*26 : n.type==='timeline'?58+i*42:68+i*42;
-      const port = document.createElement('div'); port.className='port in'; port.dataset.node=n.id; port.dataset.port=p.id;port.dataset.type=p.type; port.style.top=`${y}px`; port.title=`Input: ${p.label} (${p.type})`;
+      const pLabel = getPortLabel(n.type, p, true);
+      const port = document.createElement('div'); port.className='port in'; port.dataset.node=n.id; port.dataset.port=p.id;port.dataset.type=p.type; port.style.top=`${y}px`; port.title=`Input: ${pLabel} (${p.type})`;
       if(p.type==='text'||p.type==='negative')port.onpointerdown=e=>startWireFromInput(e,n.id,p.id,p.type);
       port.ondragover=e=>{if(state.connectingFrom&&portCompatible(state.connectingFrom,n.id,p.id)){e.preventDefault();port.classList.add('wire-compatible');}};
       port.onclick = (e) => { e.stopPropagation(); if(state.suppressPortClick)return; if(state.connectingFrom)connect(n.id,p.id); else setRunStatus('Start from a compatible output port, then click this input.','warn'); };
-      const label=document.createElement('span'); label.className='port-label left'; label.style.top=`${y-1}px`; const count=isMultiInput(n.type,p.id)?getIncoming(n.id,p.id).length:0;label.textContent=count?`${p.label} · ${count}`:p.label;if(count)port.title=n.type==='textConcat'?`Text sources (${count} connected)`:p.id==='prompt'?`Prompt sources (${count} connected)`:`Reference images (${count} connected)`;el.append(label,port);
+      const label=document.createElement('span'); label.className='port-label left'; label.style.top=`${y-1}px`; const count=isMultiInput(n.type,p.id)?getIncoming(n.id,p.id).length:0;label.textContent=count?`${pLabel} · ${count}`:pLabel;if(count)port.title=n.type==='textConcat'?`Text sources (${count} connected)`:p.id==='prompt'?`Prompt sources (${count} connected)`:`Reference images (${count} connected)`;el.append(label,port);
     });
     (def.outputs || []).forEach((p, i) => {
       const y = ['prompt','negativePrompt','textAppend'].includes(n.type) ? 80 : n.type==='generateVideo'?82+i*30:['imageInput','generateImage'].includes(n.type)?82:66+i*42;
-      const port=document.createElement('div'); port.className='port out'; port.dataset.node=n.id; port.dataset.port=p.id;port.dataset.type=p.type; port.style.top=`${y}px`; port.title=`Output: ${p.label} (${p.type})`;
+      const pLabel = getPortLabel(n.type, p, false);
+      const port=document.createElement('div'); port.className='port out'; port.dataset.node=n.id; port.dataset.port=p.id;port.dataset.type=p.type; port.style.top=`${y}px`; port.title=`Output: ${pLabel} (${p.type})`;
       port.onpointerdown=e=>startWire(e,n.id,p.id);
       if(n.type==='generateVideo'){port.classList.add('video-output-port');port.title=p.id==='endFrame'?'Connect this final frame to the next video’s reference input':'Connect video output to the Timeline or another compatible input';}
-      port.onmousedown=e=>{if(e.button===0){e.stopPropagation();state.connectingFrom={nodeId:n.id,portId:p.id};setRunStatus(`Connecting ${p.type}: click a compatible input port.`,'warn');}};
-      port.onclick=(e)=>{e.stopPropagation();if(state.suppressPortClick)return;if(!state.draggingWire){state.connectingFrom={nodeId:n.id,portId:p.id};setRunStatus(`Connecting ${p.type}: click a compatible input or drag to one.`,'warn');}};
-      const label=document.createElement('span'); label.className='port-label right'; label.style.top=`${y-1}px`; label.textContent=p.label; el.append(label,port);
+      port.onmousedown=e=>{if(e.button===0){e.stopPropagation();state.connectingFrom={nodeId:n.id,portId:p.id};setRunStatus('status.connectingPortClick','warn',{type:p.type});}};
+      port.onclick=(e)=>{e.stopPropagation();if(state.suppressPortClick)return;if(!state.draggingWire){state.connectingFrom={nodeId:n.id,portId:p.id};setRunStatus('status.connectingPortDrag','warn',{type:p.type});}};
+      const label=document.createElement('span'); label.className='port-label right'; label.style.top=`${y-1}px`; label.textContent=pLabel; el.append(label,port);
     });
   }
 
@@ -932,11 +986,11 @@
     node.data.clipOrder=ordered;syncTimelineDock();
     node._timelineEdges=edges;
     const bar=document.createElement('div');bar.className='timeline-toolbar';
-    const count=document.createElement('span');count.textContent=`${ordered.length} clip${ordered.length===1?'':'s'}`;
-    const play=document.createElement('button');play.type='button';play.className='small-btn';play.textContent='▶ Preview sequence';play.disabled=!ordered.some(id=>nodeById(id)?.data?.asset?.url);play.onclick=()=>playTimeline(node);
+    const count=document.createElement('span');count.textContent=window.t('timeline.clipCount',{count:ordered.length});
+    const play=document.createElement('button');play.type='button';play.className='small-btn';play.textContent=window.t('nodes.hints.previewSequence');play.disabled=!ordered.some(id=>nodeById(id)?.data?.asset?.url);play.onclick=()=>playTimeline(node);
     bar.append(count,play);body.appendChild(bar);
     const track=document.createElement('div');track.className='timeline-track';
-    if(!ordered.length){const empty=document.createElement('div');empty.className='timeline-empty';empty.textContent='Drop video nodes here or connect them to clip inputs';track.appendChild(empty);}
+    if(!ordered.length){const empty=document.createElement('div');empty.className='timeline-empty';empty.textContent=window.t('nodes.hints.dropVideoHere');track.appendChild(empty);}
     ordered.forEach((id,index)=>{
       const source=nodeById(id);if(!source)return;
       const clip=document.createElement('div');clip.className='timeline-clip';clip.draggable=true;clip.dataset.clip=id;
@@ -944,7 +998,7 @@
       clip.ondragover=e=>{e.preventDefault();};
       clip.ondrop=e=>{e.preventDefault();const moving=e.dataTransfer.getData('application/x-museflow-video-node')||e.dataTransfer.getData('text/plain'),arr=[...node.data.clipOrder],from=arr.indexOf(moving),to=arr.indexOf(id);if(from>=0&&to>=0&&from!==to){createUndoSnapshot('Reorder Timeline clips');arr.splice(from,1);arr.splice(to,0,moving);node.data.clipOrder=arr;syncTimelineDock();render();saveState();}};
       const label=document.createElement('div');label.className='timeline-clip-head';label.textContent=`${String(index+1).padStart(2,'0')} · ${source.data.asset?.name||'Video clip'}`;
-      const length=document.createElement('label');length.className='clip-duration';length.textContent='Play (sec)';
+      const length=document.createElement('label');length.className='clip-duration';length.textContent=window.t('nodes.hints.playSec');
       const input=document.createElement('input');input.type='number';input.min='1';input.max='60';input.value=String(node.data.durations?.[id]||source.data.duration||5);input.onchange=()=>{node.data.durations=node.data.durations||{};node.data.durations[id]=Math.max(1,Math.min(60,Number(input.value)||5));scheduleAutoSave();};length.appendChild(input);
       const status=document.createElement('span');status.className=`timeline-clip-state ${source.data.status||'idle'}`;status.textContent=source.data.status||'waiting';
       clip.append(label,length,status);track.appendChild(clip);
@@ -960,7 +1014,7 @@
    * @returns {HTMLDivElement} Phần tử drop zone.
    */
   function createTimelineDropZone(node){
-    const zone=document.createElement('div');zone.className='timeline-inline-drop';zone.textContent='Drop video node here to add to timeline';
+    const zone=document.createElement('div');zone.className='timeline-inline-drop';zone.textContent=window.t?window.t('timeline.dropZoneText'):'Drop video node here to add to timeline';
     zone.ondragover=event=>{event.preventDefault();zone.classList.add('drag-over');};zone.ondragleave=()=>zone.classList.remove('drag-over');
     zone.ondrop=event=>{event.preventDefault();zone.classList.remove('drag-over');addTimelineClip(node,event.dataTransfer.getData('application/x-museflow-video-node')||event.dataTransfer.getData('text/plain'));};return zone;
   }
@@ -992,7 +1046,7 @@
     createUndoSnapshot('Import videos to Timeline');const timeline=timelineBefore||ensureDockTimeline(),order=timeline.data.clipOrder,addIds=new Set(additions.map(video=>video.id));
     order.push(...topoOrder().filter(id=>addIds.has(id)));
     syncTimelineDock();render();saveState();if($('#timelineDock').classList.contains('collapsed'))toggleTimeline();
-    setRunStatus(`Imported ${additions.length} video node${additions.length===1?'':'s'} to the timeline. Run will generate videos in timeline order.`,'ok');
+    setRunStatus('status.importedVideoNodes','ok',{count:additions.length});
   }
 
   /**
@@ -1000,15 +1054,15 @@
    * Cập nhật danh sách clip, thước đo thời gian (ruler), kim phát (playhead), và thanh điều khiển thời lượng.
    */
   function syncTimelineDock(){
-    const dock=$('#timelineDock'),track=$('#timelineTrack'),count=$('#timelineClipCount'),addButton=$('#timelineAddVideoBtn'),importAllButton=$('#timelineImportAllBtn'),outputMenu=$('#timelineOutputMenu'),node=ensureDockTimeline();dock.classList.remove('no-timeline');const allVideos=state.nodes.filter(item=>item.type==='generateVideo'),candidates=allVideos.filter(item=>!(node.data.clipOrder||[]).includes(item.id));addButton.disabled=!candidates.length;addButton.title=addButton.disabled?'All video outputs are already on the timeline':'Add a video output';importAllButton.disabled=!candidates.length;importAllButton.title=!allVideos.length?'No Generate Video nodes to import':!candidates.length?'All Generate Video nodes are already on the timeline':'Import all Generate Video nodes';outputMenu.innerHTML='';if(!candidates.length){const empty=document.createElement('span');empty.textContent='No video outputs available';outputMenu.appendChild(empty);}candidates.forEach((video,index)=>{const option=document.createElement('button');option.type='button';option.textContent=video.data.asset?.name||`Generate Video ${index+1}`;option.onclick=()=>{outputMenu.classList.add('hidden');addTimelineClip(node,video.id);};outputMenu.appendChild(option);});
-    const clips=(node.data.clipOrder||[]).map(id=>nodeById(id)).filter(item=>item?.type==='generateVideo');node.data.clipOrder=clips.map(item=>item.id);count.textContent=`${clips.length} clip${clips.length===1?'':'s'}`;track.innerHTML='';
+    const dock=$('#timelineDock'),track=$('#timelineTrack'),count=$('#timelineClipCount'),addButton=$('#timelineAddVideoBtn'),importAllButton=$('#timelineImportAllBtn'),outputMenu=$('#timelineOutputMenu'),node=ensureDockTimeline();dock.classList.remove('no-timeline');const allVideos=state.nodes.filter(item=>item.type==='generateVideo'),candidates=allVideos.filter(item=>!(node.data.clipOrder||[]).includes(item.id));addButton.disabled=!candidates.length;addButton.title=addButton.disabled?window.t('timeline.allVideosOnTimeline'):window.t('timeline.addClipTitle');importAllButton.disabled=!candidates.length;importAllButton.title=!allVideos.length?window.t('timeline.noVideosToImport'):!candidates.length?window.t('timeline.allVideosOnTimeline'):window.t('timeline.importAllVideoTitle');outputMenu.innerHTML='';if(!candidates.length){const empty=document.createElement('span');empty.textContent=window.t('timeline.noVideosAvailable');outputMenu.appendChild(empty);}candidates.forEach((video,index)=>{const option=document.createElement('button');option.type='button';option.textContent=video.data.asset?.name||`${getNodeTitle('generateVideo')} ${index+1}`;option.onclick=()=>{outputMenu.classList.add('hidden');addTimelineClip(node,video.id);};outputMenu.appendChild(option);});
+    const clips=(node.data.clipOrder||[]).map(id=>nodeById(id)).filter(item=>item?.type==='generateVideo');node.data.clipOrder=clips.map(item=>item.id);count.textContent=window.t('timeline.clipCount',{count:clips.length});track.innerHTML='';
     const pixelsPerSecond=42,total=clips.reduce((sum,clip)=>sum+Number(node.data.durations?.[clip.id]||clip.data.duration||5),0);track.style.setProperty('--timeline-total-width',`${Math.max(track.clientWidth,total*pixelsPerSecond)}px`);const ruler=document.createElement('div');ruler.className='timeline-ruler';ruler.setAttribute('role','slider');ruler.setAttribute('aria-label','Timeline playback position');ruler.setAttribute('aria-valuemin','0');ruler.setAttribute('aria-valuemax',String(total));ruler.tabIndex=0;ruler.style.width=`${Math.max(track.clientWidth,total*pixelsPerSecond)}px`;for(let sec=0;sec<=Math.ceil(total);sec+=5){const tick=document.createElement('span');tick.textContent=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;tick.style.flexBasis=`${5*pixelsPerSecond}px`;ruler.appendChild(tick);}track.appendChild(ruler);
     const playhead=document.createElement('div');playhead.className='timeline-playhead';playhead.style.left=`${(state.timelinePreviewPosition||0)*pixelsPerSecond}px`;playhead.style.height=`${Math.max(70,track.clientHeight-8)}px`;playhead.setAttribute('aria-hidden','true');track.appendChild(playhead);
     let scrubbing=false;const updateScrub=e=>{const rect=track.getBoundingClientRect(),time=Math.max(0,Math.min(total,(e.clientX-rect.left+track.scrollLeft)/pixelsPerSecond));state.timelinePreviewPosition=time;ruler.setAttribute('aria-valuenow',String(time.toFixed(2)));playhead.style.left=`${time*pixelsPerSecond}px`;};ruler.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();scrubbing=true;ruler.setPointerCapture(e.pointerId);updateScrub(e);};ruler.onpointermove=e=>{if(scrubbing)updateScrub(e);};ruler.onpointerup=e=>{if(!scrubbing)return;scrubbing=false;updateScrub(e);playTimeline(node,{startTime:state.timelinePreviewPosition});};ruler.onpointercancel=()=>{scrubbing=false;};ruler.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?total:Math.max(0,Math.min(total,(state.timelinePreviewPosition||0)+(e.key==='ArrowRight'?1:-1)));state.timelinePreviewPosition=next;playhead.style.left=`${next*pixelsPerSecond}px`;ruler.setAttribute('aria-valuenow',String(next));playTimeline(node,{startTime:next});};
-    const lane=document.createElement('div');lane.className='timeline-lane';if(!clips.length){const empty=document.createElement('div');empty.className='dock-empty';empty.textContent='Drop Generate Video nodes here to build your scene sequence';lane.appendChild(empty);}
+    const lane=document.createElement('div');lane.className='timeline-lane';if(!clips.length){const empty=document.createElement('div');empty.className='dock-empty';empty.textContent=window.t('timeline.dropZoneText');lane.appendChild(empty);}
     clips.forEach((clip,index)=>{const duration=Number(node.data.durations?.[clip.id]||clip.data.duration||5),item=document.createElement('div');item.className=`dock-clip${duration<4?' compact':''}`;item.style.width=`${duration*pixelsPerSecond}px`;item.style.minWidth=`${duration*pixelsPerSecond}px`;item.style.maxWidth=`${duration*pixelsPerSecond}px`;item.draggable=true;item.dataset.clip=clip.id;item.ondragstart=event=>{event.dataTransfer.setData('application/x-museflow-video-node',clip.id);event.dataTransfer.effectAllowed='move';};item.ondragover=event=>event.preventDefault();item.ondrop=event=>{event.preventDefault();const moving=event.dataTransfer.getData('application/x-museflow-video-node'),from=node.data.clipOrder.indexOf(moving),to=node.data.clipOrder.indexOf(clip.id);if(from>=0&&to>=0&&from!==to){createUndoSnapshot('Reorder Timeline clips');node.data.clipOrder.splice(from,1);node.data.clipOrder.splice(to,0,moving);syncTimelineDock();render();saveState();}else if(moving&&nodeById(moving)?.type==='generateVideo')addTimelineClip(node,moving);};
       const thumb=document.createElement('div');thumb.className='dock-clip-thumb';if(clip.data.asset?.url){if(clip.data.asset.kind==='image'){const image=document.createElement('img');image.src=clip.data.asset.url;thumb.appendChild(image);}else{const video=document.createElement('video');video.src=clip.data.asset.url;video.muted=true;video.preload='metadata';thumb.appendChild(video);}}else thumb.textContent='▶';
-      const details=document.createElement('div');details.className='dock-clip-details';const title=document.createElement('span');title.textContent=`${String(index+1).padStart(2,'0')} · ${clip.data.asset?.name||'Video '+(index+1)}`;title.title=title.textContent;const length=document.createElement('label');length.textContent='Duration';const input=document.createElement('input');input.type='number';input.min='1';input.max='60';input.value=String(duration);input.onchange=()=>{node.data.durations=node.data.durations||{};node.data.durations[clip.id]=Math.max(1,Math.min(60,Number(input.value)||5));syncTimelineDock();render();saveState();};length.appendChild(input);details.append(title,length);const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title='Remove clip';remove.onclick=()=>{createUndoSnapshot('Remove Timeline clip');node.data.clipOrder=node.data.clipOrder.filter(id=>id!==clip.id);syncTimelineDock();render();saveState();};item.append(thumb,details,remove);lane.appendChild(item);});track.appendChild(lane);
+      const details=document.createElement('div');details.className='dock-clip-details';const title=document.createElement('span');title.textContent=`${String(index+1).padStart(2,'0')} · ${clip.data.asset?.name||(window.t?window.t('timeline.videoFallbackName',{index:index+1}):'Video '+(index+1))}`;title.title=title.textContent;const length=document.createElement('label');length.textContent=window.t?window.t('timeline.duration'):'Duration';const input=document.createElement('input');input.type='number';input.min='1';input.max='60';input.value=String(duration);input.onchange=()=>{node.data.durations=node.data.durations||{};node.data.durations[clip.id]=Math.max(1,Math.min(60,Number(input.value)||5));syncTimelineDock();render();saveState();};length.appendChild(input);details.append(title,length);const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title=window.t?window.t('timeline.removeClip'):'Remove clip';remove.onclick=()=>{createUndoSnapshot('Remove Timeline clip');node.data.clipOrder=node.data.clipOrder.filter(id=>id!==clip.id);syncTimelineDock();render();saveState();};item.append(thumb,details,remove);lane.appendChild(item);});track.appendChild(lane);
     dock.ondragover=event=>{if(event.dataTransfer.types.includes('application/x-museflow-video-node')){event.preventDefault();dock.classList.add('drag-over');if(dock.classList.contains('collapsed'))toggleTimeline();}};dock.ondragleave=event=>{if(!dock.contains(event.relatedTarget))dock.classList.remove('drag-over');};dock.ondrop=event=>{event.preventDefault();dock.classList.remove('drag-over');const id=event.dataTransfer.getData('application/x-museflow-video-node');if(id)addTimelineClip(node,id);};
   }
 
@@ -1020,7 +1074,7 @@
   /**
    * Mở rộng hoặc thu gọn thanh dock Timeline ở chân màn hình.
    */
-  function toggleTimeline(){const dock=$('#timelineDock'),collapsed=dock.classList.toggle('collapsed'),button=$('#timelineToggleBtn');button.textContent=collapsed?'▲':'▼';button.title=collapsed?'Show timeline':'Hide timeline';button.setAttribute('aria-expanded',String(!collapsed));}
+  function toggleTimeline(){const dock=$('#timelineDock'),collapsed=dock.classList.toggle('collapsed'),button=$('#timelineToggleBtn');button.textContent=collapsed?'▲':'▼';button.title=collapsed?window.t('timeline.showTimelineTitle'):window.t('timeline.hideTimelineTitle');button.setAttribute('aria-expanded',String(!collapsed));}
 
   /**
    * Đóng cửa sổ xem trước chuỗi video Timeline và dừng tất cả các video player đang phát.
@@ -1098,7 +1152,7 @@
       await ffmpeg.load({coreURL:chrome.runtime.getURL('vendor/ffmpeg/ffmpeg-core.js'),wasmURL:chrome.runtime.getURL('vendor/ffmpeg/ffmpeg-core.wasm')},{signal});
       const clipInfo=[];
       for(let index=0;index<clips.length;index++){
-        throwIfStopped();button.textContent=`Loading clips ${index+1}/${clips.length}…`;setRunStatus(`Loading timeline clip ${index+1}/${clips.length} into local FFmpeg…`,'warn');
+        throwIfStopped();button.textContent=`Loading clips ${index+1}/${clips.length}…`;setRunStatus('status.loadingClipToFfmpeg','warn',{index:index+1,total:clips.length});
         const response=await fetch(clips[index].data.asset.url,{credentials:'include',signal});if(!response.ok)throw new Error(`Could not download timeline clip ${index+1} (HTTP ${response.status}).`);
         const bytes=new Uint8Array(await response.arrayBuffer());if(!bytes.length)throw new Error(`Timeline clip ${index+1} is empty.`);const inputPath=`/scene_${String(index).padStart(3,'0')}.bin`;await ffmpeg.writeFile(inputPath,bytes,{signal});sourceUrls.push(inputPath);
         const probePath=`/probe_${index}.json`;await ffmpeg.ffprobe(['-v','error','-show_entries','stream=codec_type,codec_name,width,height,profile,pix_fmt,sample_rate,channels:format=duration','-of','json',inputPath,'-o',probePath],-1,{signal});const raw=await ffmpeg.readFile(probePath,'utf8',{signal}),probe=JSON.parse(typeof raw==='string'?raw:new TextDecoder().decode(raw));const videoStream=probe.streams?.find(stream=>stream.codec_type==='video'),audioStream=probe.streams?.find(stream=>stream.codec_type==='audio');if(!videoStream)throw new Error(`Timeline clip ${index+1} has no readable video stream.`);clipInfo.push({hasAudio:!!audioStream,width:Number(videoStream.width)||1280,height:Number(videoStream.height)||720,videoCodec:videoStream.codec_name,videoProfile:videoStream.profile,pixelFormat:videoStream.pix_fmt,audioCodec:audioStream?.codec_name,audioRate:Number(audioStream?.sample_rate)||0,audioChannels:Number(audioStream?.channels)||0,sourceDuration:Number(probe.format?.duration)||0,duration:Math.max(1,Math.min(60,Number(node.data.durations?.[clips[index].id]||clips[index].data.duration||5)))});await ffmpeg.deleteFile(probePath,{signal});
@@ -1140,7 +1194,7 @@
     try{const AudioContextType=window.AudioContext||window.webkitAudioContext;if(AudioContextType){audioContext=new AudioContextType();audioDestination=audioContext.createMediaStreamDestination();audioResumePromise=audioContext.resume().catch(()=>{});}}catch{audioContext=null;audioDestination=null;}
     try{
       for(let index=0;index<clips.length;index++){
-        throwIfStopped();button.textContent=`Preparing ${index+1}/${clips.length}…`;setRunStatus(`Preparing timeline clip ${index+1}/${clips.length} for export…`,'warn');
+        throwIfStopped();button.textContent=`Preparing ${index+1}/${clips.length}…`;setRunStatus('status.preparingClipForExport','warn',{index:index+1,total:clips.length});
         const response=await fetch(clips[index].data.asset.url,{credentials:'include',signal:exportSignal});if(!response.ok)throw new Error(`Could not download timeline clip ${index+1} (HTTP ${response.status}).`);
         const blob=await response.blob();if(!blob.size)throw new Error(`Timeline clip ${index+1} is empty.`);sourceUrls.push(URL.createObjectURL(blob));
       }
@@ -1162,14 +1216,14 @@
       for(let index=0;index<clips.length;index++){
         throwIfStopped();
         if(index){if(recorder.state==='recording')recorder.pause();video.pause();video.src=sourceUrls[index];video.load();await waitForData();}
-        video.currentTime=0;await video.play();if(index){await waitForExportDelay(60);if(recorder.state==='paused')recorder.resume();}button.textContent=`Exporting ${index+1}/${clips.length}…`;setRunStatus(`Exporting timeline clip ${index+1}/${clips.length} in track order…`,'warn');
+        video.currentTime=0;await video.play();if(index){await waitForExportDelay(60);if(recorder.state==='paused')recorder.resume();}button.textContent=`Exporting ${index+1}/${clips.length}…`;setRunStatus('status.exportingClipInOrder','warn',{index:index+1,total:clips.length});
         const duration=Math.max(1,Math.min(60,Number(node.data.durations?.[clips[index].id]||clips[index].data.duration||5)));await waitForExportDelay(duration*1000);video.pause();
       }
       const completed=new Promise(resolve=>{recorder.addEventListener('stop',resolve,{once:true});});recorder.stop();await completed;const output=await recordingPromise;if(!output.size)throw new Error('The exported video is empty.');
       const actualMime=(output.type||recorder.mimeType||recorderMimeType||'video/webm').toLowerCase(),extension=actualMime.includes('mp4')?'mp4':'webm';if(requestedFormat==='mp4'&&extension!=='mp4')throw new Error('The browser did not produce an MP4 file. Choose WebM or use a browser with MP4 MediaRecorder support.');
       if(state.timelineExportUrl)URL.revokeObjectURL(state.timelineExportUrl);state.timelineExportUrl=URL.createObjectURL(output);
       const player=$('#timelinePlayer'),nextPlayer=$('#timelinePlayerNext');closeTimelinePreview();$('#timelinePreviewPanel').classList.remove('hidden');nextPlayer.pause();nextPlayer.classList.remove('is-active','is-fading');nextPlayer.controls=false;player.src=state.timelineExportUrl;player.controls=true;player.classList.remove('is-fading');player.classList.add('is-active');
-      const link=document.createElement('a');link.href=state.timelineExportUrl;link.download=`MuseFlow-Timeline-${new Date().toISOString().replace(/[:.]/g,'-')}.${extension}`;link.click();setRunStatus(`Stitched timeline exported as ${extension.toUpperCase()}.`,'ok');
+      const link=document.createElement('a');link.href=state.timelineExportUrl;link.download=`MuseFlow-Timeline-${new Date().toISOString().replace(/[:.]/g,'-')}.${extension}`;link.click();setRunStatus('status.stitchedExportSuccess','ok',{format:extension.toUpperCase()});
     }catch(error){if(error?.name==='AbortError')setRunStatus('Timeline export stopped.','warn');else setRunStatus(`Timeline export failed: ${error?.message||String(error)}`,'error');}
     finally{if(frameRequest)cancelAnimationFrame(frameRequest);clearTimeout(frameTimer);if(recorder?.state==='recording'||recorder?.state==='paused'){recorder.stop();try{await recordingPromise;}catch{}}video?.pause();video?.remove();canvasStream?.getTracks().forEach(track=>track.stop());await audioContext?.close().catch(()=>{});sourceUrls.forEach(url=>URL.revokeObjectURL(url));state.timelineExporting=false;state.timelineExportAbortController=null;button.disabled=false;formatSelect.disabled=false;button.textContent='⇩ Export';stopButton.classList.add('hidden');}
   }
@@ -1357,13 +1411,13 @@
   /**
    * Mở modal hộp thoại cho phép người dùng đặt tên cho vùng nhóm vừa tạo.
    */
-  function openGroupNameModal(){const pending=state.pendingGroup;if(!pending)return;state.nameDialog={type:'group'};$('#nameDialogIcon').textContent='▱';$('#groupNameTitle').textContent='Name group';$('#groupNameDescription').textContent=`Skip to use the default name · ${pending.defaultName}`;$('#nameDialogLabel').textContent='Group name';$('#skipGroupNameBtn').classList.remove('hidden');$('#cancelNodeRenameBtn').classList.add('hidden');$('#confirmGroupNameBtn').textContent='Create group';const input=$('#groupNameInput');input.value='';input.placeholder=pending.defaultName;$('#groupNameModal').classList.remove('hidden');requestAnimationFrame(()=>input.focus());}
+  function openGroupNameModal(){const pending=state.pendingGroup;if(!pending)return;state.nameDialog={type:'group'};$('#nameDialogIcon').textContent='▱';$('#groupNameTitle').textContent=window.t('modals.groupName.titleGroup');$('#groupNameDescription').textContent=`${window.t('modals.groupName.descGroup')} · ${pending.defaultName}`;$('#nameDialogLabel').textContent=window.t('modals.groupName.labelGroup');$('#skipGroupNameBtn').classList.remove('hidden');$('#cancelNodeRenameBtn').classList.add('hidden');$('#confirmGroupNameBtn').textContent=window.t('modals.groupName.okBtn');const input=$('#groupNameInput');input.value='';input.placeholder=pending.defaultName;$('#groupNameModal').classList.remove('hidden');requestAnimationFrame(()=>input.focus());}
   /**
    * Mở modal hộp thoại cho phép đổi tên hiển thị tùy chỉnh (customName) cho một node cụ thể.
    *
    * @param {string} nodeId - Mã định danh của node cần đổi tên.
    */
-  function openNodeRenameModal(nodeId){const node=nodeById(nodeId);if(!node)return;state.nameDialog={type:'node',nodeId};const current=['generateImage','generateVideo'].includes(node.type)?generationNodeTitle(node):(node.data.customName||`${nodeDefs[node.type].title}${node.data.sceneLabel?` · ${node.data.sceneLabel}`:''}`);$('#nameDialogIcon').textContent='✎';$('#groupNameTitle').textContent='Rename node';$('#groupNameDescription').textContent='Choose a clear name to recognize this node on the canvas.';$('#nameDialogLabel').textContent='Node name';$('#skipGroupNameBtn').classList.add('hidden');$('#cancelNodeRenameBtn').classList.remove('hidden');$('#confirmGroupNameBtn').textContent='Save name';const input=$('#groupNameInput');input.value=current;input.placeholder='Enter node name';$('#groupNameModal').classList.remove('hidden');requestAnimationFrame(()=>{input.focus();input.select();});}
+  function openNodeRenameModal(nodeId){const node=nodeById(nodeId);if(!node)return;state.nameDialog={type:'node',nodeId};const current=['generateImage','generateVideo'].includes(node.type)?generationNodeTitle(node):(node.data.customName||`${nodeDefs[node.type].title}${node.data.sceneLabel?` · ${node.data.sceneLabel}`:''}`);$('#nameDialogIcon').textContent='✎';$('#groupNameTitle').textContent=window.t('modals.groupName.titleNode');$('#groupNameDescription').textContent=window.t('modals.groupName.descNode');$('#nameDialogLabel').textContent=window.t('modals.groupName.labelNode');$('#skipGroupNameBtn').classList.add('hidden');$('#cancelNodeRenameBtn').classList.remove('hidden');$('#confirmGroupNameBtn').textContent=window.t('modals.groupName.okBtn');const input=$('#groupNameInput');input.value=current;input.placeholder='Enter node name';$('#groupNameModal').classList.remove('hidden');requestAnimationFrame(()=>{input.focus();input.select();});}
   /**
    * Đóng modal đặt tên nhóm hoặc đổi tên node.
    */
@@ -1377,7 +1431,7 @@
    *
    * @param {string} name - Tên nhóm được người dùng xác nhận hoặc tên mặc định.
    */
-  function commitPendingGroup(name){const pending=state.pendingGroup;if(!pending)return;createUndoSnapshot('Create group region');state.groups.push({id:uid('group'),name:name||pending.defaultName,x:pending.x,y:pending.y,width:pending.width,height:pending.height,nodeIds:pending.nodeIds});state.pendingGroup=null;closeGroupNameModal();render();saveState();setRunStatus(`Group region created${pending.nodeIds.length?` around ${pending.nodeIds.length} node${pending.nodeIds.length===1?'':'s'}`:''}.`,'ok');}
+  function commitPendingGroup(name){const pending=state.pendingGroup;if(!pending)return;createUndoSnapshot('Create group region');state.groups.push({id:uid('group'),name:name||pending.defaultName,x:pending.x,y:pending.y,width:pending.width,height:pending.height,nodeIds:pending.nodeIds});state.pendingGroup=null;closeGroupNameModal();render();saveState();setRunStatus('status.groupCreatedAroundNodes','ok',{count:pending.nodeIds.length});}
   /**
    * Hủy bỏ thao tác vẽ vùng nhóm đang dở dang và tắt chế độ vẽ nhóm.
    */
@@ -1397,22 +1451,48 @@
    */
   function openCanvasMenu(e){
     const nodeEl=e.target.closest('.node');e.preventDefault();e.stopPropagation();
-    if(!nodeEl){const rect=$('#viewport').getBoundingClientRect(),menu=$('#canvasMenu');state.contextPoint={x:(e.clientX-rect.left-state.panX)/state.zoom,y:(e.clientY-rect.top-state.panY)/state.zoom};menu.innerHTML='';delete menu.dataset.nodeId;const title=document.createElement('div');title.className='menu-caption';title.textContent='Canvas';menu.appendChild(title);[['＋ Prompt','add:prompt'],['＋ Text note','add:text'],['＋ Negative Prompt','add:negativePrompt'],['＋ Image Input','add:imageInput'],['＋ References','add:references'],['＋ Generate Image','add:generateImage'],['＋ Generate Video','add:generateVideo'],['＋ Timeline','add:timeline'],['＋ Preview','add:preview'],['Save workflow','save'],['▶ Run workflow','run'],['Arrange nodes','arrange'],['Delete selected node','delete-selected'],['Remove all connections','disconnect-all']].forEach(([label,action])=>{const button=document.createElement('button');button.type='button';button.textContent=label;button.dataset.contextAction=action;menu.appendChild(button);});menu.classList.remove('hidden');menu.style.left=`${Math.min(e.clientX,innerWidth-230)}px`;menu.style.top=`${Math.min(e.clientY,innerHeight-420)}px`;return;}
+    if(!nodeEl){
+      const rect=$('#viewport').getBoundingClientRect(),menu=$('#canvasMenu');state.contextPoint={x:(e.clientX-rect.left-state.panX)/state.zoom,y:(e.clientY-rect.top-state.panY)/state.zoom};menu.innerHTML='';delete menu.dataset.nodeId;const title=document.createElement('div');title.className='menu-caption';title.textContent='Canvas';menu.appendChild(title);
+      [
+        [`＋ ${getNodeTitle('prompt')}`,'add:prompt'],
+        [`＋ ${window.t?window.t('menu.nodes.textNote'):'Text note'}`,'add:text'],
+        [`＋ ${getNodeTitle('negativePrompt')}`,'add:negativePrompt'],
+        [`＋ ${getNodeTitle('imageInput')}`,'add:imageInput'],
+        [`＋ ${getNodeTitle('references')}`,'add:references'],
+        [`＋ ${getNodeTitle('generateImage')}`,'add:generateImage'],
+        [`＋ ${getNodeTitle('generateVideo')}`,'add:generateVideo'],
+        [`＋ ${getNodeTitle('timeline')}`,'add:timeline'],
+        [`＋ ${getNodeTitle('preview')}`,'add:preview'],
+        [window.t?window.t('menu.actions.saveWorkflow'):'Save workflow','save'],
+        [window.t?window.t('menu.actions.runWorkflow'):'▶ Run workflow','run'],
+        [window.t?window.t('menu.actions.arrangeNodes'):'Arrange nodes','arrange'],
+        [window.t?window.t('menu.actions.deleteSelected'):'Delete selected node','delete-selected'],
+        [window.t?window.t('menu.actions.disconnectAll'):'Remove all connections','disconnect-all']
+      ].forEach(([label,action])=>{const button=document.createElement('button');button.type='button';button.textContent=label;button.dataset.contextAction=action;menu.appendChild(button);});
+      menu.classList.remove('hidden');menu.style.left=`${Math.min(e.clientX,innerWidth-230)}px`;menu.style.top=`${Math.min(e.clientY,innerHeight-420)}px`;return;
+    }
     e.stopPropagation();const node=nodeById(nodeEl.dataset.id);if(!node)return;state.selectedNodeId=node.id;
     const menu=$('#canvasMenu');menu.innerHTML='';menu.dataset.nodeId=node.id;
-    const title=document.createElement('div');title.className='menu-caption';title.textContent=['generateImage','generateVideo'].includes(node.type)?generationNodeTitle(node):(node.data.customName||nodeDefs[node.type].title);menu.appendChild(title);
+    const title=document.createElement('div');title.className='menu-caption';title.textContent=['generateImage','generateVideo'].includes(node.type)?generationNodeTitle(node):(node.data.customName||getNodeTitle(node.type));menu.appendChild(title);
     const addAction=(label,action)=>{const button=document.createElement('button');button.type='button';button.textContent=label;button.dataset.contextAction=action;menu.appendChild(button);};
-    addAction('Rename node…','node-rename');
-    if(['generateImage','generateVideo'].includes(node.type))addAction(node.data.status==='running'?`■ Stop ${node.type==='generateVideo'?'Video':'Image'}`:`▶ Run ${node.type==='generateVideo'?'Video':'Image'}`,'node-run');
-    if(node.type==='generateVideo')addAction('↻ Again · follow prompt more closely','node-again');
-    if(node.type==='timeline')addAction('▶ Preview sequence','node-preview');
-    if((nodeDefs[node.type]?.outputs||[]).some(port=>port.type==='text'))addAction('Create Text Merge node','node-create-text-merge');
-    if((nodeDefs[node.type]?.outputs||[]).some(port=>['image','video'].includes(port.type)))addAction('Create Preview node','node-create-preview');
-    if(node.type==='imageInput')addAction('Choose / replace image','node-choose-image');
-    if(node.type==='imageResize')addAction('Download resized image','node-download-image');
-    if(node.type==='preview')addAction('Download preview','node-download-preview');
-    if(node.type==='prompt'||node.type==='negativePrompt'||node.type==='textAppend')addAction('Focus text field','node-focus-text');
-    addAction('Duplicate node','node-duplicate');addAction('Disconnect node','node-disconnect');addAction('Delete node','node-delete');
+    addAction(window.t?window.t('nodes.contextMenu.renameNode'):'Rename node…','node-rename');
+    if(['generateImage','generateVideo'].includes(node.type)) {
+      const isVid = node.type === 'generateVideo';
+      const stopLabel = window.t ? (isVid ? window.t('nodes.contextMenu.stopVideo') : window.t('nodes.contextMenu.stopImage')) : `■ Stop ${isVid ? 'Video' : 'Image'}`;
+      const runLabel = window.t ? (isVid ? window.t('nodes.contextMenu.runVideo') : window.t('nodes.contextMenu.runImage')) : `▶ Run ${isVid ? 'Video' : 'Image'}`;
+      addAction(node.data.status==='running'?stopLabel:runLabel,'node-run');
+    }
+    if(node.type==='generateVideo')addAction(window.t?window.t('nodes.contextMenu.again'):'↻ Again · follow prompt more closely','node-again');
+    if(node.type==='timeline')addAction(window.t?window.t('nodes.contextMenu.previewSequence'):'▶ Preview sequence','node-preview');
+    if((nodeDefs[node.type]?.outputs||[]).some(port=>port.type==='text'))addAction(window.t?window.t('nodes.contextMenu.createTextMerge'):'Create Text Merge node','node-create-text-merge');
+    if((nodeDefs[node.type]?.outputs||[]).some(port=>['image','video'].includes(port.type)))addAction(window.t?window.t('nodes.contextMenu.createPreview'):'Create Preview node','node-create-preview');
+    if(node.type==='imageInput')addAction(window.t?window.t('nodes.contextMenu.chooseImage'):'Choose / replace image','node-choose-image');
+    if(node.type==='imageResize')addAction(window.t?window.t('nodes.contextMenu.downloadResized'):'Download resized image','node-download-image');
+    if(node.type==='preview')addAction(window.t?window.t('nodes.contextMenu.downloadPreview'):'Download preview','node-download-preview');
+    if(node.type==='prompt'||node.type==='negativePrompt'||node.type==='textAppend')addAction(window.t?window.t('nodes.contextMenu.focusText'):'Focus text field','node-focus-text');
+    addAction(window.t?window.t('nodes.contextMenu.duplicateNode'):'Duplicate node','node-duplicate');
+    addAction(window.t?window.t('nodes.contextMenu.disconnectNode'):'Disconnect node','node-disconnect');
+    addAction(window.t?window.t('nodes.contextMenu.deleteNode'):'Delete node','node-delete');
     menu.classList.remove('hidden');menu.style.left=`${Math.min(e.clientX,innerWidth-230)}px`;menu.style.top=`${Math.min(e.clientY,innerHeight-380)}px`;
   }
   /**
@@ -1423,8 +1503,8 @@
   function openEdgeMenu(e){
     const hit=e.target.closest('.edge-hit[data-edge-id]');if(!hit)return;
     e.preventDefault();e.stopPropagation();const menu=$('#canvasMenu');menu.innerHTML='';menu.dataset.edgeId=hit.dataset.edgeId;delete menu.dataset.nodeId;
-    const title=document.createElement('div');title.className='menu-caption';title.textContent='Connection';menu.appendChild(title);
-    const button=document.createElement('button');button.type='button';button.textContent='Delete connection';button.dataset.contextAction='edge-delete';menu.appendChild(button);
+    const title=document.createElement('div');title.className='menu-caption';title.textContent=window.t?window.t('nodes.contextMenu.connectionTitle'):'Connection';menu.appendChild(title);
+    const button=document.createElement('button');button.type='button';button.textContent=window.t?window.t('nodes.contextMenu.deleteConnection'):'Delete connection';button.dataset.contextAction='edge-delete';menu.appendChild(button);
     menu.classList.remove('hidden');menu.style.left=`${Math.min(e.clientX,innerWidth-230)}px`;menu.style.top=`${Math.min(e.clientY,innerHeight-120)}px`;
   }
   /**
@@ -1677,7 +1757,7 @@
     const requestId=state.activeGenerationId===nodeId?state.generationRequestId:null;
     if(state.activeGenerationId===nodeId)state.generationAbortController?.abort();
     if(node){node.data.status='stopped';node.data.error='Generation stopped by user.';}
-    setRunStatus(`Stopped ${node?.type==='generateVideo'?'video':'image'} generation: ${nodeId}`,'warn');
+    setRunStatus('status.stoppedGenerationId','warn',{type:node?.type==='generateVideo'?'video':'image',id:nodeId});
     render();
     // Cancellation is best-effort for Muse, but never wait for its response to unlock the UI.
     void sendMuseStop(requestId);
@@ -1757,7 +1837,7 @@
       node.data.status=node.data.asset?.url?'success':'idle';
       if(node.data.status==='idle')node.data.error='Previous run was interrupted; ready to retry.';
     }
-    const abortController=new AbortController();state.generationAbortController=abortController;state.activeGenerationId=targetId;state.isRunning=true;$('#runBtn').disabled=false;$('#runBtn').textContent='■ Stop workflow';$('#runBtn').title='Stop the running workflow and its remaining nodes';
+    const abortController=new AbortController();state.generationAbortController=abortController;state.activeGenerationId=targetId;state.isRunning=true;$('#runBtn').disabled=false;$('#runBtn').textContent=window.t?window.t('toolbar.stop'):'■ Stop workflow';$('#runBtn').title=window.t?window.t('toolbar.stopTitle'):'Stop the running workflow and its remaining nodes';
     setRunStatus(targetId?(again?'Regenerating video with stronger prompt adherence…':'Running selected generation node…'):'Running workflow...','warn');
     try{
       if(targetId)validateTargetPrompt(targetId);
@@ -1786,7 +1866,7 @@
           const continuityPrevious=isVideo&&n.data.continuity?timelinePredecessor(n.id):null,continuityStartFrame=continuityPrevious?.data?.endFrame?.url?continuityPrevious.data.endFrame:null;
           if(isVideo&&n.data.continuity&&!continuityStartFrame)throw new Error(`End-frame continuity for ${n.id} needs the previous Timeline clip to be generated successfully with an extractable final frame. Put clips in order and run the previous clip first.`);
           const referenceImages=resolveReferences(n.id);
-          state.activeGenerationId=n.id;n.data.status='running';n.data.error='';n.data.asset=null;n.data.endFrame=null;state.edges.filter(edge=>edge.source===n.id).forEach(edge=>{const target=nodeById(edge.target);if(target?.type==='preview')target.data.asset=null;});render();setRunStatus(`${targetId?'Selected node':`Generation ${generationStep}/${totalGenerations}`} · generating ${isVideo?'video':'image'}: ${n.id}`,'warn');
+          state.activeGenerationId=n.id;n.data.status='running';n.data.error='';n.data.asset=null;n.data.endFrame=null;state.edges.filter(edge=>edge.source===n.id).forEach(edge=>{const target=nodeById(edge.target);if(target?.type==='preview')target.data.asset=null;});render();const genLabel=targetId?(window.t?window.t('status.selectedNodeLabel'):'Selected node'):(window.t?window.t('status.generationStepLabel',{step:generationStep,total:totalGenerations}):`Generation ${generationStep}/${totalGenerations}`);setRunStatus('status.generationStepProgress','warn',{label:genLabel,type:isVideo?'video':'image',id:n.id});
           try{
             const sizeInstruction=`Output aspect ratio: ${n.data.size}. Match this frame shape exactly. ${n.data.size==='16:9'?'Use a wide landscape composition.':n.data.size==='9:16'?'Use a tall portrait composition.':n.data.size==='1:1'?'Use a square composition.':n.data.size==='4:3'?'Use a standard landscape composition.':'Use a standard portrait composition.'}`;
             const continuityInstruction=continuityStartFrame?'CONTINUITY LOCK: Attached image 1 is the exact final frame of the previous Timeline clip. Use image 1 as the exact first frame of this video: preserve its subject identity, pose, position, camera angle, crop, lighting, and background. Continue motion naturally from that precise moment. No reset, jump, flash, dissolve, or scene change at the start.':'';
@@ -1797,7 +1877,7 @@
             let reply=await museTabMessage(generationRequest,preferredMuseTabId,abortController.signal);
             if(abortController.signal.aborted)throw new DOMException('Generation stopped by user.','AbortError');
             if(!reply?.ok&&reply?.code==='SCENE_REFUSED'){
-              setRunStatus(`Muse could not create ${n.data.sceneLabel||'this scene'}; retrying once with a close, safe alternative…`,'warn');
+              setRunStatus('status.retryingSceneSafeAlt','warn',{scene:n.data.sceneLabel||(window.t?window.t('status.thisScene'):'this scene')});
               const retryRequest={...generationRequest,prompt:`${musePrompt}\n\nSAFE EQUIVALENT RETRY: The previous version could not be generated. Create a close, allowed alternative for the same scene now. Stay faithful to the script's story purpose, characters, relationship, setting, action, mood, visual style, framing, continuity, and requested duration/aspect ratio. Change only the specific detail that prevents generation, replacing it with the nearest safe equivalent. Keep this scene in the story; do not skip it or change what it needs to accomplish. Do not ask a follow-up question or ask permission; generate the alternative in this attempt. Follow all content and safety rules.`};
               reply=await museTabMessage(retryRequest,preferredMuseTabId,abortController.signal);
             }
@@ -1821,7 +1901,7 @@
       clearTimeout(autoSaveTimer);setRunStatus(targetId?'Node generation completed.':'Workflow completed.','ok');
       // Persistence can be slow when a workflow contains large local media.
       // Never keep generation controls locked while IndexedDB/storage finishes.
-      void queueWorkflowSave().catch(saveError=>{if(!state.isRunning)setRunStatus(`Generation completed, but workflow could not be saved: ${saveError?.message||String(saveError)}`,'warn');});
+      void queueWorkflowSave().catch(saveError=>{if(!state.isRunning)setRunStatus('status.generationCompletedSaveFailed','warn',{error:saveError?.message||String(saveError)});});
     }catch(err){
       if(err?.name==='AbortError'||abortController.signal.aborted){
         const active=state.nodes.find(n=>n.id===state.activeGenerationId);
@@ -1832,10 +1912,10 @@
       const failed=state.nodes.find(n=>['generateImage','generateVideo'].includes(n.type)&&n.data.status==='running');
       if(failed){failed.data.status='error';failed.data.error=err?.message||String(err);render();}
       const message=err?.message||String(err);
-      setRunStatus(/failed to fetch/i.test(message)?`Muse connection failed. Reload MuseFlow ${appVersion}, then check the Muse session.`:`MuseFlow ${appVersion} · ${message}`,'error');
-      clearTimeout(autoSaveTimer);void queueWorkflowSave().catch(saveError=>{if(!state.isRunning)setRunStatus(`${runStatus.textContent} · Auto-save failed: ${saveError?.message||String(saveError)}`,'error');});
+      if(/failed to fetch/i.test(message)){setRunStatus('status.museConnectionFailed','error',{version:appVersion});}else{setRunStatus(`MuseFlow ${appVersion} · ${message}`,'error');}
+      clearTimeout(autoSaveTimer);void queueWorkflowSave().catch(saveError=>{if(!state.isRunning)setRunStatus('status.autoSaveFailed','error',{error:saveError?.message||String(saveError)});});
     }
-    finally{state.isRunning=false;state.activeGenerationId=null;state.generationAbortController=null;state.generationRequestId=null;$('#runBtn').disabled=false;$('#runBtn').textContent='▶ Run workflow';$('#runBtn').title='Run every node in the workflow in dependency order';render();}
+    finally{state.isRunning=false;state.activeGenerationId=null;state.generationAbortController=null;state.generationRequestId=null;$('#runBtn').disabled=false;$('#runBtn').textContent=window.t?window.t('toolbar.run'):'▶ Run workflow';$('#runBtn').title=window.t?window.t('toolbar.runTitle'):'Run every node in the workflow in dependency order';render();}
   }
 
   /**
@@ -1868,13 +1948,16 @@
   function renderRunOrderList(){const list=$('#runOrderList');if(!list)return;list.replaceChildren();
     for(const [index,id] of (pendingGenerationOrder||[]).entries()){const node=nodeById(id);if(!node)continue;const row=document.createElement('div');row.className='run-order-row';row.dataset.nodeId=id;row.draggable=true;row.tabIndex=0;row.setAttribute('aria-grabbed','false');
       const handle=document.createElement('span');handle.className='run-order-grip';handle.setAttribute('aria-hidden','true');handle.textContent='⠿';
-      const check=document.createElement('input');check.className='run-order-check';check.type='checkbox';check.checked=pendingGenerationSelection.has(id);check.setAttribute('aria-label',`Chọn ${generationNodeTitle(node)} để chạy`);check.title=check.checked?'Sẽ chạy node này':'Bỏ qua node này';
+      const check=document.createElement('input');check.className='run-order-check';check.type='checkbox';check.checked=pendingGenerationSelection.has(id);check.setAttribute('aria-label',window.t?window.t('modals.runOrder.selectNodeAria',{name:generationNodeTitle(node)}):`Chọn ${generationNodeTitle(node)} để chạy`);check.title=check.checked?(window.t?window.t('modals.runOrder.willRun'):'Sẽ chạy node này'):(window.t?window.t('modals.runOrder.willSkip'):'Bỏ qua node này');
       const rank=document.createElement('span');rank.className='run-order-rank';rank.textContent=String(index+1);
       const thumbWrap=document.createElement('span');thumbWrap.className=`run-order-thumb ${node.type==='generateVideo'?'video':''}`;const media=node.data?.asset?.url;if(media){const thumb=document.createElement(node.type==='generateVideo'?'video':'img');thumb.src=media;thumb.alt='';if(thumb instanceof HTMLVideoElement){thumb.muted=true;thumb.playsInline=true;thumb.preload='metadata';}thumbWrap.appendChild(thumb);}else{const glyph=document.createElement('span');glyph.textContent=node.type==='generateVideo'?'▶':'▧';thumbWrap.appendChild(glyph);}
-      const info=document.createElement('span');info.className='run-order-info';const name=document.createElement('strong');name.textContent=generationNodeTitle(node);const meta=document.createElement('span');meta.className='run-order-meta';meta.textContent=`${node.type==='generateVideo'?'Video':'Ảnh'} · tạo thứ ${generationCreationNumber(id)}`;info.append(name,meta);
-      const type=document.createElement('span');type.className=`run-order-type ${node.type==='generateVideo'?'video':''}`;type.textContent=node.type==='generateVideo'?'VIDEO':'ẢNH';
-      row.append(handle,check,rank,thumbWrap,info,type);check.addEventListener('change',()=>{if(check.checked)pendingGenerationSelection.add(id);else pendingGenerationSelection.delete(id);check.title=check.checked?'Sẽ chạy node này':'Bỏ qua node này';row.classList.toggle('excluded',!check.checked);type.textContent=check.checked?(node.type==='generateVideo'?'VIDEO':'ẢNH'):'BỎ QUA';validateRunOrderSelection();});
-      row.classList.toggle('excluded',!check.checked);if(!check.checked)type.textContent='BỎ QUA';
+      const info=document.createElement('span');info.className='run-order-info';const name=document.createElement('strong');name.textContent=generationNodeTitle(node);const meta=document.createElement('span');meta.className='run-order-meta';meta.textContent=`${node.type==='generateVideo'?(window.t?window.t('modals.runOrder.typeVideo'):'Video'):(window.t?window.t('modals.runOrder.typeImage'):'Ảnh')} · ${window.t?window.t('modals.runOrder.createdOrder',{num:generationCreationNumber(id)}):`tạo thứ ${generationCreationNumber(id)}`}`;info.append(name,meta);
+      const typeVideoStr=window.t?window.t('modals.runOrder.typeVideoUpper'):'VIDEO';
+      const typeImageStr=window.t?window.t('modals.runOrder.typeImageUpper'):'ẢNH';
+      const skipStr=window.t?window.t('modals.runOrder.skipped'):'BỎ QUA';
+      const type=document.createElement('span');type.className=`run-order-type ${node.type==='generateVideo'?'video':''}`;type.textContent=node.type==='generateVideo'?typeVideoStr:typeImageStr;
+      row.append(handle,check,rank,thumbWrap,info,type);check.addEventListener('change',()=>{if(check.checked)pendingGenerationSelection.add(id);else pendingGenerationSelection.delete(id);check.title=check.checked?(window.t?window.t('modals.runOrder.willRun'):'Sẽ chạy node này'):(window.t?window.t('modals.runOrder.willSkip'):'Bỏ qua node này');row.classList.toggle('excluded',!check.checked);type.textContent=check.checked?(node.type==='generateVideo'?typeVideoStr:typeImageStr):skipStr;validateRunOrderSelection();});
+      row.classList.toggle('excluded',!check.checked);if(!check.checked)type.textContent=skipStr;
       row.addEventListener('dragstart',event=>{if(event.target===check){event.preventDefault();return;}draggedGenerationId=id;row.classList.add('dragging');row.setAttribute('aria-grabbed','true');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',id);});row.addEventListener('dragover',event=>{event.preventDefault();event.dataTransfer.dropEffect='move';row.classList.add('drag-over');});row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));row.addEventListener('drop',event=>{event.preventDefault();row.classList.remove('drag-over');moveGenerationOrder(draggedGenerationId,id);});row.addEventListener('dragend',()=>{draggedGenerationId=null;row.classList.remove('dragging');row.setAttribute('aria-grabbed','false');document.querySelectorAll('.run-order-row').forEach(item=>item.classList.remove('drag-over'));});row.addEventListener('keydown',event=>{if(!['ArrowUp','ArrowDown'].includes(event.key))return;event.preventDefault();const current=pendingGenerationOrder.indexOf(id),next=Math.max(0,Math.min(pendingGenerationOrder.length-1,current+(event.key==='ArrowUp'?-1:1)));if(next===current)return;pendingGenerationOrder.splice(current,1);pendingGenerationOrder.splice(next,0,id);renderRunOrderList();$('#runOrderList').querySelector(`[data-node-id="${CSS.escape(id)}"]`)?.focus();validateRunOrderSelection();});list.appendChild(row);
     }
     validateRunOrderSelection();
@@ -1897,7 +1980,7 @@
    * Kiểm tra tính hợp lệ của danh sách các node được chọn trong modal thứ tự chạy:
    * Cảnh báo nếu thứ tự người dùng kéo bị xung đột với chiều kết nối phụ thuộc topo hoặc thiếu dữ liệu nguồn.
    */
-  function validateRunOrderSelection(){const warning=$('#runOrderWarning'),confirm=$('#confirmRunOrderBtn'),ordered=(pendingGenerationOrder||[]).filter(id=>pendingGenerationSelection.has(id)),count=ordered.length,total=pendingGenerationOrder?.length||0;$('#runOrderSubtitle').textContent=`${count}/${total} node được chọn · kéo để sắp xếp thứ tự`;document.querySelectorAll('.run-order-row').forEach(row=>{const selected=pendingGenerationSelection.has(row.dataset.nodeId),rank=row.querySelector('.run-order-rank'),position=ordered.indexOf(row.dataset.nodeId);row.classList.toggle('excluded',!selected);if(rank)rank.textContent=selected?String(position+1):'–';});confirm.textContent=`▶ Chạy ${count} node`;confirm.disabled=!count;warning.classList.add('hidden');warning.textContent='';if(!count){warning.textContent='Chọn ít nhất một node để chạy.';warning.classList.remove('hidden');confirm.disabled=true;return;}const missing=missingGenerationPrerequisites(ordered);if(missing.length){warning.textContent=`Node đã chọn cần đầu ra từ: ${missing.map(id=>generationNodeTitle(nodeById(id))).join(', ')}. Hãy chọn thêm node nguồn hoặc tạo đầu ra trước.`;warning.classList.remove('hidden');confirm.disabled=true;return;}try{topoOrder(ordered);}catch(error){warning.textContent='Thứ tự này xung đột với kết nối phụ thuộc giữa các node. Hãy đưa node tạo nguồn lên trước.';warning.classList.remove('hidden');confirm.disabled=true;}}
+  function validateRunOrderSelection(){const warning=$('#runOrderWarning'),confirm=$('#confirmRunOrderBtn'),ordered=(pendingGenerationOrder||[]).filter(id=>pendingGenerationSelection.has(id)),count=ordered.length,total=pendingGenerationOrder?.length||0;$('#runOrderSubtitle').textContent=window.t?window.t('modals.runOrder.subtitleSelection',{count,total}):`${count}/${total} node được chọn · kéo để sắp xếp thứ tự`;document.querySelectorAll('.run-order-row').forEach(row=>{const selected=pendingGenerationSelection.has(row.dataset.nodeId),rank=row.querySelector('.run-order-rank'),position=ordered.indexOf(row.dataset.nodeId);row.classList.toggle('excluded',!selected);if(rank)rank.textContent=selected?String(position+1):'–';});confirm.textContent=window.t?window.t('modals.runOrder.runNodesCount',{count}):`▶ Chạy ${count} node`;confirm.disabled=!count;warning.classList.add('hidden');warning.textContent='';if(!count){warning.textContent=window.t?window.t('modals.runOrder.warningSelectAtLeastOne'):'Chọn ít nhất một node để chạy.';warning.classList.remove('hidden');confirm.disabled=true;return;}const missing=missingGenerationPrerequisites(ordered);if(missing.length){warning.textContent=window.t?window.t('modals.runOrder.warningMissingPrerequisites',{missing:missing.map(id=>generationNodeTitle(nodeById(id))).join(', ')}):`Node đã chọn cần đầu ra từ: ${missing.map(id=>generationNodeTitle(nodeById(id))).join(', ')}. Hãy chọn thêm node nguồn hoặc tạo đầu ra trước.`;warning.classList.remove('hidden');confirm.disabled=true;return;}try{topoOrder(ordered);}catch(error){warning.textContent=window.t?window.t('modals.runOrder.warningCycleConflict'):'Thứ tự này xung đột với kết nối phụ thuộc giữa các node. Hãy đưa node tạo nguồn lên trước.';warning.classList.remove('hidden');confirm.disabled=true;}}
   /**
    * Đóng modal xác nhận thứ tự chạy workflow.
    */
@@ -1915,7 +1998,69 @@
    * @param {string} text - Nội dung thông báo hiển thị cho người dùng.
    * @param {string} [cls=''] - Lớp CSS phân loại trạng thái ('ok', 'warn', 'error').
    */
-  function setRunStatus(text, cls=''){runStatus.className=cls;runStatus.textContent=text;}
+  const statusKeyMap = {
+    'Stop the running workflow before undoing edits.': 'undoStopWorkflow',
+    'Nothing to undo.': 'nothingToUndo',
+    'Text note added to canvas.': 'textNoteAdded',
+    'Could not create the selected node.': 'createNodeFailed',
+    'Port types are not compatible.': 'incompatiblePorts',
+    'This connection would create a workflow loop. Connect the nodes in one direction.': 'loopDetected',
+    'Node copy created.': 'nodeCopyCreated',
+    'Only Generate Video outputs can be added to the timeline.': 'onlyVideoToTimeline',
+    'All Generate Video nodes are already on the timeline.': 'allVideosAlreadyOnTimeline',
+    'No Generate Video nodes to import.': 'noVideoNodesToImport',
+    'Connect completed video clips to the timeline first.': 'connectCompletedClipsFirst',
+    'Timeline preview complete.': 'timelinePreviewComplete',
+    'Loading the local FFmpeg video engine…': 'loadingFfmpegEngine',
+    'Joining compatible timeline clips without re-encoding (fast, original quality)…': 'joiningClipsFast',
+    'FFmpeg is assembling and encoding the complete timeline locally…': 'encodingCompleteTimeline',
+    'Timeline exported as MP4 (H.264) with local FFmpeg.': 'timelineExportMp4Success',
+    'Timeline export stopped.': 'timelineExportStopped',
+    'Add completed video clips to the Timeline before exporting.': 'addCompletedVideosBeforeExport',
+    'The bundled FFmpeg engine could not be loaded. Reload the extension and try again.': 'ffmpegEngineLoadFailed',
+    'This browser cannot export a stitched video from the Timeline.': 'cannotExportStitchedVideo',
+    'Stopping timeline export…': 'stoppingExport',
+    'Group region is too small. Drag a larger area to create it.': 'groupTooSmall',
+    'Node name cannot be empty.': 'nodeNameEmpty',
+    'Group name cannot be empty.': 'groupNameEmpty',
+    'Group tool active: drag across the canvas to mark a group region. Press G or Escape to cancel.': 'groupToolActive',
+    'Node renamed.': 'nodeRenamed',
+    'Text Merge created and connected to this text output.': 'textMergeCreatedConnected',
+    'Node connections removed.': 'nodeConnectionsRemoved',
+    'This node has no output to download.': 'noOutputToDownload',
+    'Node duplicated.': 'nodeDuplicated',
+    'Nodes arranged by workflow order.': 'nodesArranged',
+    'Connection deleted.': 'connectionDeleted',
+    'Select one or more nodes first.': 'selectNodesFirst',
+    'All connections removed.': 'allConnectionsRemoved',
+    'Regenerating video with stronger prompt adherence…': 'regeneratingAgain',
+    'Running selected generation node…': 'runningSelectedNode',
+    'Running workflow...': 'runningWorkflow',
+    'Image Resize is waiting for an input image.': 'imageResizeWaiting',
+    'Node generation completed.': 'nodeGenerationCompleted',
+    'Workflow completed.': 'workflowCompleted',
+    'Saved.': 'saved',
+    'Workflow saved with media included.': 'workflowSavedWithMedia',
+    'Stop the running workflow before importing another one.': 'stopWorkflowBeforeImport',
+    'Selected connections deleted.': 'selectedConnectionsDeleted',
+    'Drop the output on the canvas to choose a compatible node.': 'dropOutputToChoose',
+    'Start from a compatible output port, then click this input.': 'startFromOutputPort'
+  };
+
+  let lastStatus = null;
+  function setRunStatus(text, cls='', params=undefined){
+    lastStatus = { text, cls, params };
+    let display = text;
+    if (window.t) {
+      if (typeof text === 'string' && text.startsWith('status.')) {
+        display = window.t(text, params);
+      } else if (typeof text === 'string' && statusKeyMap[text]) {
+        display = window.t('status.' + statusKeyMap[text], params);
+      }
+    }
+    runStatus.className = cls;
+    runStatus.textContent = display;
+  }
 
   /**
    * Tính toán giá trị số thực của tỷ lệ khung hình từ chuỗi định dạng 'W:H'.
@@ -2074,7 +2219,7 @@
    * @async
    * @returns {Promise<void>}
    */
-  async function saveState(){clearTimeout(autoSaveTimer);try{await queueWorkflowSave();setRunStatus('Saved.','ok');}catch(error){setRunStatus(`Could not save workflow: ${error?.message||String(error)}`,'error');}}
+  async function saveState(){clearTimeout(autoSaveTimer);try{await queueWorkflowSave();setRunStatus('Saved.','ok');}catch(error){setRunStatus('status.cannotSaveWorkflow','error',{error:error?.message||String(error)});}}
   /**
    * Tiện ích chuyển đổi đối tượng Blob thành chuỗi Data URL bằng FileReader.
    *
@@ -2107,8 +2252,8 @@
       for(const node of workflow.nodes){const data=node.data||{};if(data.localDataUrl)data.localDataUrl=await packageUrl(data.localDataUrl);for(const field of ['asset','endFrame'])if(data[field]?.url)data[field].url=await packageUrl(data[field].url);}
       const file={format:'26flow-workflow',version:1,appVersion,exportedAt:new Date().toISOString(),workflow};
       const blob=new Blob([JSON.stringify(file)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`26MuseFlow-Workflow-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
-      setRunStatus(externalMedia?`Workflow saved; ${externalMedia} media URL(s) could not be embedded and may require the original Muse session.`:'Workflow saved with media included.','ok');
-    }catch(error){setRunStatus(`Could not save workflow file: ${error?.message||String(error)}`,'error');}
+      setRunStatus(externalMedia?'status.workflowSavedExternalUrls':'status.workflowSavedWithMedia','ok',externalMedia?{count:externalMedia}:undefined);
+    }catch(error){setRunStatus('status.cannotSaveWorkflowFile','error',{error:error?.message||String(error)});}
     finally{button.disabled=false;}
   }
   /**
@@ -2123,15 +2268,15 @@
     if(!file)return;if(state.isRunning){setRunStatus('Stop the running workflow before importing another one.','warn');return;}
     let parsed,workflow;
     try{parsed=JSON.parse(await file.text());workflow=parsed?.format==='26flow-workflow'?parsed.workflow:parsed;if(!workflow||!Array.isArray(workflow.nodes)||!Array.isArray(workflow.edges))throw new Error('This file does not contain a valid MuseFlow workflow.');}
-    catch(error){setRunStatus(`Could not import workflow: ${error?.message||String(error)}`,'error');return;}
-    if(!window.confirm('Importing this workflow will replace the current canvas. Continue?'))return;
+    catch(error){setRunStatus('status.cannotImportWorkflow','error',{error:error?.message||String(error)});return;}
+    if(!window.confirm(window.t?window.t('modals.confirmReplaceCanvas'):'Importing this workflow will replace the current canvas. Continue?'))return;
     createUndoSnapshot('Import workflow',{preserveRuntime:false});
     const previous={nodes:state.nodes,edges:state.edges,groups:state.groups,notes:state.notes,settings:state.settings};
     try{
       state.nodes=workflow.nodes;state.edges=workflow.edges;state.groups=Array.isArray(workflow.groups)?workflow.groups:[];state.notes=Array.isArray(workflow.notes)?workflow.notes:[];state.settings=workflow.settings&&typeof workflow.settings==='object'?workflow.settings:{};
       await hydrateWorkflowMedia();normalizeSavedGraph();state.selectedNodeIds=[];state.selectedNodeId=null;state.selectedEdgeIds=[];syncSettingsUI();render();await queueWorkflowSave();
-      setRunStatus(`Workflow imported: ${file.name}`,'ok');
-    }catch(error){state.nodes=previous.nodes;state.edges=previous.edges;state.groups=previous.groups||[];state.notes=previous.notes||[];state.settings=previous.settings;render();setRunStatus(`Could not import workflow: ${error?.message||String(error)}`,'error');}
+      setRunStatus('status.workflowImported','ok',{name:file.name});
+    }catch(error){state.nodes=previous.nodes;state.edges=previous.edges;state.groups=previous.groups||[];state.notes=previous.notes||[];state.settings=previous.settings;render();setRunStatus('status.cannotImportWorkflow','error',{error:error?.message||String(error)});}
   }
   /**
    * Nạp trạng thái workflow đã lưu từ chrome.storage.local và IndexedDB khi tiện ích được mở lên.
@@ -2140,8 +2285,8 @@
    * @async
    * @returns {Promise<void>}
    */
-  async function loadState(){try{const got=await chrome.storage.local.get('museflow');if(got.museflow){state.nodes=Array.isArray(got.museflow.nodes)?got.museflow.nodes:[];state.edges=Array.isArray(got.museflow.edges)?got.museflow.edges:[];state.groups=Array.isArray(got.museflow.groups)?got.museflow.groups:[];state.notes=Array.isArray(got.museflow.notes)?got.museflow.notes:[];state.settings=got.museflow.settings||{};if(!state.nodes.length){const s=starter();state.nodes=s.nodes;state.edges=s.edges;}}else{const s=starter();state.nodes=s.nodes;state.edges=s.edges;}await hydrateWorkflowMedia();}catch(error){const s=starter();state.nodes=s.nodes;state.edges=s.edges;state.groups=[];state.notes=[];setRunStatus(`Could not load saved workflow: ${error.message}`,'error');}normalizeSavedGraph();syncSettingsUI();
-    render();syncTimelineDock();try{clearTimeout(autoSaveTimer);await queueWorkflowSave();}catch(error){setRunStatus(`Workflow is open, but media migration failed: ${error?.message||String(error)}`,'warn');}}
+  async function loadState(){try{const got=await chrome.storage.local.get('museflow');if(got.museflow){state.nodes=Array.isArray(got.museflow.nodes)?got.museflow.nodes:[];state.edges=Array.isArray(got.museflow.edges)?got.museflow.edges:[];state.groups=Array.isArray(got.museflow.groups)?got.museflow.groups:[];state.notes=Array.isArray(got.museflow.notes)?got.museflow.notes:[];state.settings=got.museflow.settings||{};if(state.settings.lang&&window.i18n)window.i18n.setLanguage(state.settings.lang,{syncStorage:false});if(!state.nodes.length){const s=starter();state.nodes=s.nodes;state.edges=s.edges;}}else{const s=starter();state.nodes=s.nodes;state.edges=s.edges;}await hydrateWorkflowMedia();}catch(error){const s=starter();state.nodes=s.nodes;state.edges=s.edges;state.groups=[];state.notes=[];setRunStatus('status.cannotLoadWorkflow','error',{error:error.message});}normalizeSavedGraph();syncSettingsUI();
+    render();syncTimelineDock();try{clearTimeout(autoSaveTimer);await queueWorkflowSave();}catch(error){setRunStatus('status.workflowOpenMediaFailed','warn',{error:error?.message||String(error)});}}
   /**
    * Đặt lại (Reset) toàn bộ canvas về trạng thái workflow mặc định ban đầu sau khi lưu snapshot vào Undo.
    *
@@ -2152,7 +2297,13 @@
   /**
    * Cập nhật thông tin phiên bản ứng dụng trên giao diện cài đặt và thanh trạng thái.
    */
-  function syncSettingsUI(){backendStatus.textContent=`Muse session · v${appVersion}`;}
+  function syncSettingsUI(){
+    const currentLang = window.i18n?.getLanguage?.() || 'vi';
+    const langSelect = $('#langSelect'), modalLangSelect = $('#modalLangSelect');
+    if (langSelect && langSelect.value !== currentLang) langSelect.value = currentLang;
+    if (modalLangSelect && modalLangSelect.value !== currentLang) modalLangSelect.value = currentLang;
+    backendStatus.textContent = window.t ? window.t('statusbar.museConnected', { version: appVersion }) : `Muse session · v${appVersion}`;
+  }
 
   /**
    * Tự động phát hiện các tab Muse.ai đang mở trong trình duyệt Chrome và kiểm tra kết nối phiên.
@@ -2213,6 +2364,18 @@
   $('#closeSettingsBtn').onclick=()=>$('#settingsModal').classList.add('hidden');
   $('#saveSettingsBtn').onclick=async()=>{$('#settingsModal').classList.add('hidden');await saveState();};
   $('#settingsModal').onclick=(e)=>{if(e.target.id==='settingsModal')$('#settingsModal').classList.add('hidden');};
+  $('#langSelect')?.addEventListener('change', e => window.i18n?.setLanguage(e.target.value));
+  $('#modalLangSelect')?.addEventListener('change', e => window.i18n?.setLanguage(e.target.value));
+  window.i18n?.onLanguageChange(newLang => {
+    state.settings = state.settings || {};
+    state.settings.lang = newLang;
+    syncSettingsUI();
+    render();
+    syncTimelineDock();
+    if (lastStatus) {
+      setRunStatus(lastStatus.text, lastStatus.cls, lastStatus.params);
+    }
+  });
   window.addEventListener('resize',drawEdges);
   window.addEventListener('pointermove',onWireMove);
   window.addEventListener('pointermove',moveSelectionMarquee);

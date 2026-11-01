@@ -23,46 +23,50 @@
   <header class="toolbar">
     <div class="brand"><img class="brand-logo" src="icons/26flow.svg" alt="26Flow" /><strong class="brand-name">Flow</strong><span class="brand-version">0.5.2</span></div>
     <div class="toolbar-tools" aria-label="Add workflow nodes">
-      <button id="scriptImportBtn" type="button">＋ Script → Nodes</button>
-      <button id="addNodeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false">＋ Add node</button>
+      <button id="scriptImportBtn" type="button" data-i18n="toolbar.scriptImport">＋ Script → Nodes</button>
+      <button id="addNodeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" data-i18n="toolbar.addNode">＋ Add node</button>
     </div>
     <div class="toolbar-actions">
-      <button id="saveBtn">Save</button>
-      <button id="workflowExportBtn" type="button" title="Save workflow as a reusable JSON file">Save workflow</button>
-      <button id="workflowImportBtn" type="button" title="Import a saved MuseFlow workflow">Import workflow</button>
+      <select id="langSelect" class="lang-select" data-i18n-aria="toolbar.langAria" title="Chọn ngôn ngữ / Select language">
+        <option value="vi">Tiếng Việt</option>
+        <option value="en">English</option>
+      </select>
+      <button id="saveBtn" data-i18n="toolbar.save">Save</button>
+      <button id="workflowExportBtn" type="button" data-i18n="toolbar.saveWorkflow" data-i18n-title="toolbar.saveWorkflowTitle" title="Save workflow as a reusable JSON file">Save workflow</button>
+      <button id="workflowImportBtn" type="button" data-i18n="toolbar.importWorkflow" data-i18n-title="toolbar.importWorkflowTitle" title="Import a saved MuseFlow workflow">Import workflow</button>
       <input id="workflowFileInput" type="file" accept=".json,application/json" hidden />
-      <button id="settingsBtn">Settings</button>
-      <button id="resetBtn" class="danger">Reset</button>
-      <button id="runBtn" class="primary" title="Run every node in the workflow in dependency order">▶ Run workflow</button>
-      <button id="buyCoffeeBtn" class="buy-coffee-btn" type="button" title="Support MuseFlow via VietQR">☕ Buy me a coffee</button>
+      <button id="settingsBtn" data-i18n="toolbar.settings">Settings</button>
+      <button id="resetBtn" class="danger" data-i18n="toolbar.reset">Reset</button>
+      <button id="runBtn" class="primary" data-i18n="toolbar.runWorkflow" data-i18n-title="toolbar.runWorkflowTitle" title="Run every node in the workflow in dependency order">▶ Run workflow</button>
+      <button id="buyCoffeeBtn" class="buy-coffee-btn" type="button" data-i18n="toolbar.buyCoffee" data-i18n-title="toolbar.buyCoffeeTitle" title="Support MuseFlow via VietQR">☕ Buy me a coffee</button>
     </div>
   </header>
 
   <div id="addNodeMenu" class="add-node-menu hidden" role="menu" aria-label="Add node">
-    <div class="add-node-group"><span>Text</span>
-      <button type="button" role="menuitem" data-add="prompt">Prompt</button>
-      <button type="button" role="menuitem" data-add="negativePrompt">Negative prompt</button>
-      <button type="button" role="menuitem" data-add="textAppend">Text append</button>
-      <button type="button" role="menuitem" data-add="textConcat">Text merge</button>
-      <button type="button" role="menuitem" data-add="text">Text note</button>
+    <div class="add-node-group"><span data-i18n="menu.groups.text">Text</span>
+      <button type="button" role="menuitem" data-add="prompt" data-i18n="menu.nodes.prompt">Prompt</button>
+      <button type="button" role="menuitem" data-add="negativePrompt" data-i18n="menu.nodes.negativePrompt">Negative prompt</button>
+      <button type="button" role="menuitem" data-add="textAppend" data-i18n="menu.nodes.textAppend">Text append</button>
+      <button type="button" role="menuitem" data-add="textConcat" data-i18n="menu.nodes.textConcat">Text merge</button>
+      <button type="button" role="menuitem" data-add="text" data-i18n="menu.nodes.textNote">Text note</button>
     </div>
-    <div class="add-node-group"><span>Images</span>
-      <button type="button" role="menuitem" data-add="imageInput">Image input</button>
-      <button type="button" role="menuitem" data-add="references">References</button>
-      <button type="button" role="menuitem" data-add="generateImage">Generate image</button>
-      <button type="button" role="menuitem" data-add="imageResize">Image resize</button>
-      <button type="button" role="menuitem" data-add="preview">Preview</button>
+    <div class="add-node-group"><span data-i18n="menu.groups.images">Images</span>
+      <button type="button" role="menuitem" data-add="imageInput" data-i18n="menu.nodes.imageInput">Image input</button>
+      <button type="button" role="menuitem" data-add="references" data-i18n="menu.nodes.references">References</button>
+      <button type="button" role="menuitem" data-add="generateImage" data-i18n="menu.nodes.generateImage">Generate image</button>
+      <button type="button" role="menuitem" data-add="imageResize" data-i18n="menu.nodes.imageResize">Image resize</button>
+      <button type="button" role="menuitem" data-add="preview" data-i18n="menu.nodes.preview">Preview</button>
     </div>
-    <div class="add-node-group"><span>Video and timeline</span>
-      <button type="button" role="menuitem" data-add="generateVideo">Generate video</button>
-      <button type="button" role="menuitem" data-add="timeline">Timeline</button>
+    <div class="add-node-group"><span data-i18n="menu.groups.video">Video and timeline</span>
+      <button type="button" role="menuitem" data-add="generateVideo" data-i18n="menu.nodes.generateVideo">Generate video</button>
+      <button type="button" role="menuitem" data-add="timeline" data-i18n="menu.nodes.timeline">Timeline</button>
     </div>
   </div>
 
   <div class="statusbar">
-    <span id="museStatus">● Checking muse.ai...</span>
-    <span id="backendStatus">Generation: Muse.ai browser session</span>
-    <span id="updateNotice" class="update-notice hidden" role="status"><span id="updateNoticeText"></span><a id="updateDownloadLink" href="https://github.com/bynne2602/museflow/raw/refs/heads/main/downloads/MuseFlow-extension.zip" target="_blank" rel="noopener noreferrer">Download update</a><button id="dismissUpdateBtn" type="button" aria-label="Dismiss update notice">×</button></span>
+    <span id="museStatus" data-i18n="statusbar.checkingMuse">● Checking muse.ai...</span>
+    <span id="backendStatus" data-i18n="statusbar.generationSession">Generation: Muse.ai browser session</span>
+    <span id="updateNotice" class="update-notice hidden" role="status"><span id="updateNoticeText"></span><a id="updateDownloadLink" data-i18n="statusbar.downloadUpdate" href="https://github.com/bynne2602/museflow/raw/refs/heads/main/downloads/MuseFlow-extension.zip" target="_blank" rel="noopener noreferrer">Download update</a><button id="dismissUpdateBtn" type="button" data-i18n-aria="statusbar.dismissUpdateAria" aria-label="Dismiss update notice">×</button></span>
     <span id="runStatus"></span>
   </div>
 
@@ -70,96 +74,103 @@
     <svg id="edges"></svg>
     <div id="canvas"></div>
     <div id="canvasTools" class="canvas-tools" aria-label="Canvas controls">
-      <button id="handTool" type="button" title="Hand tool (H) · Hold Space to pan · Alt-drag to copy · Ctrl+Z to undo · G group · T Text note">✋</button>
-      <button id="groupTool" type="button" title="Draw a group region (G)">▱</button>
-      <button id="zoomOut" type="button" title="Zoom out">−</button>
+      <button id="handTool" type="button" data-i18n-title="canvas.handToolTitle" title="Hand tool (H) · Hold Space to pan · Alt-drag to copy · Ctrl+Z to undo · G group · T Text note">✋</button>
+      <button id="groupTool" type="button" data-i18n-title="canvas.groupToolTitle" title="Draw a group region (G)">▱</button>
+      <button id="zoomOut" type="button" data-i18n-title="canvas.zoomOutTitle" title="Zoom out">−</button>
       <span id="zoomLevel">100%</span>
-      <button id="zoomIn" type="button" title="Zoom in">＋</button>
-      <button id="fitCanvas" type="button" title="Fit all nodes">Fit</button>
+      <button id="zoomIn" type="button" data-i18n-title="canvas.zoomInTitle" title="Zoom in">＋</button>
+      <button id="fitCanvas" type="button" data-i18n="common.fit" data-i18n-title="canvas.fitTitle" title="Fit all nodes">Fit</button>
     </div>
   </main>
   <section id="timelineDock" class="timeline-dock collapsed" aria-label="Video timeline">
-    <div class="timeline-dock-header"><div class="timeline-heading"><strong>Timeline</strong><span id="timelineClipCount">0 clips</span><small>Arrange scenes · drag clips to reorder</small></div><div class="timeline-dock-actions"><button id="timelineImportAllBtn" type="button" title="Add every Generate Video node to the timeline">＋ Import all videos</button><div class="timeline-output-picker"><button id="timelineAddVideoBtn" type="button" title="Add a video output">＋ Add clip</button><div id="timelineOutputMenu" class="timeline-output-menu hidden"></div></div><button id="timelinePlayBtn" type="button" title="Preview sequence">▶ Preview</button><select id="timelineExportFormat" title="Choose export format"><option value="webm">WebM</option><option value="mp4">MP4 (H.264)</option></select><button id="timelineExportBtn" type="button" title="Export the full stitched timeline video">⇩ Export</button><button id="timelineExportStopBtn" class="timeline-export-stop hidden" type="button" title="Stop timeline export">■ Stop</button><button id="timelineToggleBtn" type="button" aria-expanded="false" title="Show timeline">▲</button></div></div>
-    <div id="timelineDropZone" class="timeline-drop-zone">Drag a Generate Video node or video clip here</div>
+    <div class="timeline-dock-header"><div class="timeline-heading"><strong data-i18n="timeline.heading">Timeline</strong><span id="timelineClipCount">0 clips</span><small data-i18n="timeline.arrangeHint">Arrange scenes · drag clips to reorder</small></div><div class="timeline-dock-actions"><button id="timelineImportAllBtn" type="button" data-i18n="timeline.importAllBtn" data-i18n-title="timeline.importAllTitle" title="Add every Generate Video node to the timeline">＋ Import all videos</button><div class="timeline-output-picker"><button id="timelineAddVideoBtn" type="button" data-i18n="timeline.addClipBtn" data-i18n-title="timeline.addClipTitle" title="Add a video output">＋ Add clip</button><div id="timelineOutputMenu" class="timeline-output-menu hidden"></div></div><button id="timelinePlayBtn" type="button" data-i18n="timeline.previewBtn" data-i18n-title="timeline.previewTitle" title="Preview sequence">▶ Preview</button><select id="timelineExportFormat" data-i18n-title="timeline.exportFormatTitle" title="Choose export format"><option value="webm">WebM</option><option value="mp4">MP4 (H.264)</option></select><button id="timelineExportBtn" type="button" data-i18n="timeline.exportBtn" data-i18n-title="timeline.exportTitle" title="Export the full stitched timeline video">⇩ Export</button><button id="timelineExportStopBtn" class="timeline-export-stop hidden" type="button" data-i18n="timeline.stopExportBtn" data-i18n-title="timeline.stopExportTitle" title="Stop timeline export">■ Stop</button><button id="timelineToggleBtn" type="button" aria-expanded="false" data-i18n-title="timeline.showTimelineTitle" title="Show timeline">▲</button></div></div>
+    <div id="timelineDropZone" class="timeline-drop-zone" data-i18n="timeline.dropZoneText">Drag a Generate Video node or video clip here</div>
     <div class="timeline-dock-content"><div id="timelineTrack" class="timeline-dock-track"></div></div>
   </section>
 
   <aside id="timelinePreviewPanel" class="timeline-preview-panel hidden" aria-label="Timeline video preview">
-    <header><strong>Timeline Preview</strong><button id="closeTimelinePreview" type="button" aria-label="Close preview">×</button></header>
+    <header><strong data-i18n="timeline.previewPanelTitle">Timeline Preview</strong><button id="closeTimelinePreview" type="button" data-i18n-aria="timeline.closePreviewAria" aria-label="Close preview">×</button></header>
     <div class="timeline-preview-stage"><video id="timelinePlayer" class="is-active" controls playsinline preload="auto"></video><video id="timelinePlayerNext" playsinline preload="auto"></video></div>
-    <div class="timeline-preview-caption">Scene playback</div>
+    <div class="timeline-preview-caption" data-i18n="timeline.scenePlayback">Scene playback</div>
   </aside>
 
   <div id="canvasMenu" class="canvas-menu hidden" role="menu">
-    <div class="menu-caption">Add node</div>
-    <button data-context-action="add:prompt" role="menuitem">＋ Prompt</button>
-    <button data-context-action="add:negativePrompt" role="menuitem">＋ Negative Prompt</button>
-    <button data-context-action="add:text" role="menuitem">＋ Text note</button>
-    <button data-context-action="add:textAppend" role="menuitem">＋ Text Append</button>
-    <button data-context-action="add:textConcat" role="menuitem">＋ Text Merge</button>
-    <button data-context-action="add:imageInput" role="menuitem">＋ Image Input</button>
-    <button data-context-action="add:references" role="menuitem">＋ References</button>
-    <button data-context-action="add:generateImage" role="menuitem">＋ Generate Image</button>
-    <button data-context-action="add:generateVideo" role="menuitem">＋ Generate Video</button>
-    <button data-context-action="add:timeline" role="menuitem">＋ Timeline</button>
-    <button data-context-action="add:imageResize" role="menuitem">＋ Image Resize</button>
-    <button data-context-action="add:preview" role="menuitem">＋ Preview</button>
+    <div class="menu-caption" data-i18n="canvas.addNodeMenuCaption">Add node</div>
+    <button data-context-action="add:prompt" role="menuitem" data-i18n="menu.nodes.prompt">＋ Prompt</button>
+    <button data-context-action="add:negativePrompt" role="menuitem" data-i18n="menu.nodes.negativePrompt">＋ Negative Prompt</button>
+    <button data-context-action="add:text" role="menuitem" data-i18n="menu.nodes.textNote">＋ Text note</button>
+    <button data-context-action="add:textAppend" role="menuitem" data-i18n="menu.nodes.textAppend">＋ Text Append</button>
+    <button data-context-action="add:textConcat" role="menuitem" data-i18n="menu.nodes.textConcat">＋ Text Merge</button>
+    <button data-context-action="add:imageInput" role="menuitem" data-i18n="menu.nodes.imageInput">＋ Image Input</button>
+    <button data-context-action="add:references" role="menuitem" data-i18n="menu.nodes.references">＋ References</button>
+    <button data-context-action="add:generateImage" role="menuitem" data-i18n="menu.nodes.generateImage">＋ Generate Image</button>
+    <button data-context-action="add:generateVideo" role="menuitem" data-i18n="menu.nodes.generateVideo">＋ Generate Video</button>
+    <button data-context-action="add:timeline" role="menuitem" data-i18n="menu.nodes.timeline">＋ Timeline</button>
+    <button data-context-action="add:imageResize" role="menuitem" data-i18n="menu.nodes.imageResize">＋ Image Resize</button>
+    <button data-context-action="add:preview" role="menuitem" data-i18n="menu.nodes.preview">＋ Preview</button>
     <div class="menu-divider"></div>
-    <button data-context-action="save" role="menuitem">Save workflow</button>
-    <button data-context-action="run" role="menuitem">▶ Run workflow</button>
-    <button data-context-action="arrange" role="menuitem">Arrange nodes</button>
+    <button data-context-action="save" role="menuitem" data-i18n="menu.actions.saveWorkflow">Save workflow</button>
+    <button data-context-action="run" role="menuitem" data-i18n="menu.actions.runWorkflow">▶ Run workflow</button>
+    <button data-context-action="arrange" role="menuitem" data-i18n="menu.actions.arrangeNodes">Arrange nodes</button>
     <div class="menu-divider"></div>
-    <button data-context-action="delete-selected" role="menuitem">Delete selected node</button>
-    <button data-context-action="disconnect-all" role="menuitem">Remove all connections</button>
+    <button data-context-action="delete-selected" role="menuitem" data-i18n="menu.actions.deleteSelected">Delete selected node</button>
+    <button data-context-action="disconnect-all" role="menuitem" data-i18n="menu.actions.disconnectAll">Remove all connections</button>
   </div>
 
   <div id="settingsModal" class="modal-backdrop hidden">
     <section class="modal">
-      <h2>Muse.ai session</h2>
-      <p>MuseFlow uses your signed-in Muse.ai browser tab directly. Keep the Muse chat tab open while a workflow runs.</p>
-      <div class="connection-check"><button id="testMuseBtn" type="button">Check Muse session</button><span id="connectionStatus" role="status"></span></div>
+      <h2 data-i18n="settings.title">Muse.ai session</h2>
+      <div class="settings-lang-row">
+        <label for="modalLangSelect" data-i18n="settings.languageLabel">Ngôn ngữ giao diện / Language:</label>
+        <select id="modalLangSelect" class="settings-select">
+          <option value="vi">Tiếng Việt</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      
+      <p data-i18n="settings.sessionDesc">MuseFlow uses your signed-in Muse.ai browser tab directly. Keep the Muse chat tab open while a workflow runs.</p>
+      <div class="connection-check"><button id="testMuseBtn" type="button" data-i18n="settings.checkSessionBtn">Check Muse session</button><span id="connectionStatus" role="status"></span></div>
       <div class="modal-actions">
-        <button id="closeSettingsBtn">Cancel</button>
-        <button id="saveSettingsBtn" class="primary">Save</button>
+        <button id="closeSettingsBtn" data-i18n="settings.cancel">Cancel</button>
+        <button id="saveSettingsBtn" class="primary" data-i18n="settings.save">Save</button>
       </div>
     </section>
   </div>
 
   <div id="groupNameModal" class="modal-backdrop hidden">
     <section class="modal group-name-modal" role="dialog" aria-modal="true" aria-labelledby="groupNameTitle">
-      <div class="group-name-heading"><span id="nameDialogIcon" class="group-name-icon" aria-hidden="true">▱</span><div><h2 id="groupNameTitle">Name group</h2><p id="groupNameDescription">Skip to use the default name.</p></div></div>
-      <label class="group-name-field" for="groupNameInput"><span id="nameDialogLabel">Name</span><input id="groupNameInput" type="text" maxlength="80" autocomplete="off" placeholder="Group 1"></label>
+      <div class="group-name-heading"><span id="nameDialogIcon" class="group-name-icon" aria-hidden="true">▱</span><div><h2 id="groupNameTitle" data-i18n="modals.groupName.titleGroup">Name group</h2><p id="groupNameDescription" data-i18n="modals.groupName.descGroup">Skip to use the default name.</p></div></div>
+      <label class="group-name-field" for="groupNameInput"><span id="nameDialogLabel" data-i18n="modals.groupName.labelGroup">Name</span><input id="groupNameInput" type="text" maxlength="80" autocomplete="off" data-i18n-placeholder="modals.groupName.placeholderGroup" placeholder="Group 1"></label>
       <div class="modal-actions">
-        <button id="skipGroupNameBtn" type="button">Skip</button>
-        <button id="cancelNodeRenameBtn" class="hidden" type="button">Cancel</button>
-        <button id="confirmGroupNameBtn" type="button" class="primary">OK</button>
+        <button id="skipGroupNameBtn" type="button" data-i18n="modals.groupName.skipBtn">Skip</button>
+        <button id="cancelNodeRenameBtn" class="hidden" type="button" data-i18n="modals.groupName.cancelBtn">Cancel</button>
+        <button id="confirmGroupNameBtn" type="button" class="primary" data-i18n="modals.groupName.okBtn">OK</button>
       </div>
     </section>
   </div>
 
   <div id="donationModal" class="modal-backdrop hidden">
     <section class="modal donation-modal" role="dialog" aria-modal="true" aria-labelledby="donationModalTitle">
-      <header class="donation-header"><div><h2 id="donationModalTitle">Buy me a coffee</h2><p>Ủng hộ MuseFlow qua VietQR</p></div><button id="closeDonationBtn" type="button" aria-label="Close">×</button></header>
-      <img id="donationQrImage" class="donation-qr" src="https://img.vietqr.io/image/VCB-0331000500621-compact2.png?addInfo=BUY%20ME%20A%20COFFEE&amp;accountName=NGUYEN%20TAN%20THANH" alt="VietQR for Nguyen Tan Thanh at Vietcombank" />
-      <div id="donationQrFallback" class="donation-qr-fallback hidden">QR preview could not be loaded. Open the VietQR image directly below.</div>
-      <div class="donation-details"><span>Vietcombank</span><strong>0331000500621</strong><span>NGUYEN TAN THANH</span></div>
-      <a class="donation-open-link" href="https://img.vietqr.io/image/VCB-0331000500621-compact2.png?addInfo=BUY%20ME%20A%20COFFEE&amp;accountName=NGUYEN%20TAN%20THANH" target="_blank" rel="noopener noreferrer">Open VietQR in a new tab</a>
-      <a class="donation-bmac-link" href="https://buymeacoffee.com/bynne2602i" target="_blank" rel="noopener noreferrer">Buy Me a Coffee ↗</a>
+      <header class="donation-header"><div><h2 id="donationModalTitle" data-i18n="modals.donation.title">Buy me a coffee</h2><p data-i18n="modals.donation.subtitle">Ủng hộ MuseFlow qua VietQR</p></div><button id="closeDonationBtn" type="button" data-i18n-aria="modals.donation.closeAria" aria-label="Close">×</button></header>
+      <img id="donationQrImage" class="donation-qr" src="DANG_TIEN_DAO.jpg" alt="VietQR Dang Tien Dao" />
+      <div id="donationQrFallback" class="donation-qr-fallback hidden" data-i18n="modals.donation.qrFallback">QR preview could not be loaded. Open the VietQR image directly below.</div>
+      <div class="donation-details"><span>ACB</span><strong>29148297</strong><span>DANG TIEN DAO</span></div>
+      <a class="donation-open-link" data-i18n="modals.donation.openLink" href="DANG_TIEN_DAO.jpg" target="_blank" rel="noopener noreferrer">Open VietQR in a new tab</a>
     </section>
   </div>
 
   <div id="scriptModal" class="modal-backdrop hidden">
     <section class="modal script-modal" role="dialog" aria-modal="true" aria-labelledby="scriptModalTitle">
-      <h2 id="scriptModalTitle">Build nodes from a scene script</h2>
-      <p>Paste a scene script using the Grumbo &amp; Snowy form. MuseFlow reads each scene’s opening/ending frames, timed actions, image/video prompts, audio, shared locks and negative prompt, then connects the scene nodes and orders videos on the Timeline.</p>
-      <p class="script-template-hint">Download the strict template to fill in yourself or give to an AI. Keep the headings and field order unchanged.</p>
-      <label for="scriptInput">Script</label>
+      <h2 id="scriptModalTitle" data-i18n="modals.script.title">Build nodes from a scene script</h2>
+      <p data-i18n="modals.script.desc1">Paste a scene script using the Grumbo &amp; Snowy form. MuseFlow reads each scene’s opening/ending frames, timed actions, image/video prompts, audio, shared locks and negative prompt, then connects the scene nodes and orders videos on the Timeline.</p>
+      <p class="script-template-hint" data-i18n="modals.script.desc2">Download the strict template to fill in yourself or give to an AI. Keep the headings and field order unchanged.</p>
+      <label for="scriptInput" data-i18n="modals.script.label">Script</label>
       <textarea id="scriptInput" placeholder="CẢNH 1 (0:00 đến 0:10): Scene title&#10;Khung đầu: ...&#10;Khung cuối: ...&#10;Diễn biến: 1. 0-2s: ...&#10;Prompt ảnh khung đầu: ...&#10;Prompt video: ...&#10;Audio: ..."></textarea>
       <div id="scriptImportStatus" role="status"></div>
       <div class="modal-actions">
-        <a id="downloadScriptTemplate" class="script-template-download" href="templates/museflow-scene-script-template-vi.txt" download="MuseFlow_Scene_Script_Template_VI.txt">⇩ Download strict template</a>
-        <button id="cancelScriptImport" type="button">Cancel</button>
-        <button id="buildScriptNodes" type="button" class="primary">Create scene nodes</button>
+        <a id="downloadScriptTemplate" class="script-template-download" data-i18n="modals.script.downloadTemplate" href="templates/museflow-scene-script-template-vi.txt" download="MuseFlow_Scene_Script_Template_VI.txt">⇩ Download strict template</a>
+        <button id="cancelScriptImport" type="button" data-i18n="modals.script.cancel">Cancel</button>
+        <button id="buildScriptNodes" type="button" class="primary" data-i18n="modals.script.buildNodes">Create scene nodes</button>
       </div>
     </section>
   </div>
@@ -168,22 +179,23 @@
     <section class="modal run-order-modal" role="dialog" aria-modal="true" aria-labelledby="runOrderTitle">
       <header class="run-order-header">
         <div class="run-order-heading-icon" aria-hidden="true">⇅</div>
-        <div class="run-order-heading-copy"><h2 id="runOrderTitle">Xác nhận thứ tự chạy</h2><p id="runOrderSubtitle">Các node tạo sẽ chạy theo thứ tự bên dưới.</p></div>
-        <button id="closeRunOrderBtn" class="run-order-close" type="button" aria-label="Đóng">×</button>
+        <div class="run-order-heading-copy"><h2 id="runOrderTitle" data-i18n="modals.runOrder.title">Xác nhận thứ tự chạy</h2><p id="runOrderSubtitle" data-i18n="modals.runOrder.subtitle">Các node tạo sẽ chạy theo thứ tự bên dưới.</p></div>
+        <button id="closeRunOrderBtn" class="run-order-close" type="button" data-i18n-aria="modals.runOrder.closeAria" aria-label="Đóng">×</button>
       </header>
-      <div id="runOrderList" class="run-order-list" aria-label="Thứ tự node tạo"></div>
+      <div id="runOrderList" class="run-order-list" data-i18n-aria="modals.runOrder.listAria" aria-label="Thứ tự node tạo"></div>
       <div id="runOrderWarning" class="run-order-warning hidden" role="alert"></div>
       <footer class="run-order-footer">
-        <p><span aria-hidden="true">ⓘ</span> Tick node muốn chạy; bỏ tick để bỏ qua. Node đang được chọn áp dụng khi chạy workflow.</p>
+        <p><span aria-hidden="true">ⓘ</span> <span data-i18n="modals.runOrder.note">Tick node muốn chạy; bỏ tick để bỏ qua. Node đang được chọn áp dụng khi chạy workflow.</span></p>
         <div class="run-order-actions">
-          <button id="cancelRunOrderBtn" type="button">Hủy</button>
-          <button id="resetRunOrderBtn" type="button">Đặt lại theo thứ tự tạo</button>
-          <button id="confirmRunOrderBtn" class="primary" type="button">▶ Chạy node</button>
+          <button id="cancelRunOrderBtn" type="button" data-i18n="modals.runOrder.cancel">Hủy</button>
+          <button id="resetRunOrderBtn" type="button" data-i18n="modals.runOrder.resetOrder">Đặt lại theo thứ tự tạo</button>
+          <button id="confirmRunOrderBtn" class="primary" type="button" data-i18n="modals.runOrder.runNodes">▶ Chạy node</button>
         </div>
       </footer>
     </section>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="vendor/ffmpeg/ffmpeg.js"></script>
   <script src="app.js"></script>
 </body>
