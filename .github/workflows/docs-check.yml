@@ -1,0 +1,49 @@
+name: Documentation & Syntax Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Check Syntax and Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate JavaScript Syntax
+        run: |
+          echo "Kiểm tra cú pháp các tệp JavaScript..."
+          node -c background.js
+          node -c muse-bridge.js
+          node -c app.js
+          echo "Tất cả các tệp JavaScript đều hợp lệ!"
+
+      - name: Check Broken Markdown Links in Docs
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: --exclude '(https://muse.ai|https://img.vietqr.io|https://buymeacoffee.com)' --no-progress './docs/**/*.md' 'README.md' 'README-vi.md'
+        continue-on-error: true
+
+      - name: Verify Documentation Updates
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Kiểm tra xem PR có cập nhật tài liệu tương ứng trong docs/ hay không..."
+          git fetch origin ${{ github.base_ref }}
+          CHANGED_CODE=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(js|html|css)$' || true)
+          CHANGED_DOCS=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^docs/' || true)
+          if [ -n "$CHANGED_CODE" ] && [ -z "$CHANGED_DOCS" ]; then
+            echo "CẢNH BÁO: Phát hiện thay đổi mã nguồn ($CHANGED_CODE) nhưng chưa thấy cập nhật trong thư mục docs/!"
+            echo "Theo CONTRIBUTING.md, vui lòng cập nhật tài liệu tương ứng."
+          else
+            echo "Kiểm tra tài liệu hoàn tất: Hợp lệ."
+          fi

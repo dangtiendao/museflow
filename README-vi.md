@@ -1,6 +1,12 @@
 # 26Flow
 
-[English](README.md)
+[![Phiên bản](https://img.shields.io/badge/phiên_bản-0.5.2-blue.svg)](VERSION.txt)
+[![Manifest V3](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-green.svg)](manifest.json)
+[![Giấy phép: GPL v2](https://img.shields.io/badge/Giấy_phép-GPL_v2-purple.svg)](LICENSE)
+[![Zero Dependency](https://img.shields.io/badge/Phụ_thuộc-0_npm-orange.svg)](REQUIREMENTS.md)
+[![Tài liệu](https://img.shields.io/badge/Tài_liệu_kỹ_thuật-docs%2F-brightgreen.svg)](docs/README.md)
+
+[English](README.md) · [📖 Hệ thống Tài liệu Kỹ thuật Toàn diện](docs/README.md)
 
 **Tải nhanh:** [Tải MuseFlow-extension.zip](https://github.com/bynne2602/museflow/raw/refs/heads/main/downloads/MuseFlow-extension.zip) · Không cần cài npm hoặc build.
 
@@ -104,7 +110,52 @@ Workflow và media lưu cục bộ được giữ trong bộ nhớ extension tr�
 - **Xuất timeline bị lỗi:** tải lại extension rồi thử lại. MP4 dùng engine FFmpeg đi kèm; WebM dùng `MediaRecorder` và canvas capture của trình duyệt.
 - **Kết quả không đúng thông số:** Muse.ai quyết định media đầu ra; dịch vụ có thể không luôn làm theo tỷ lệ ảnh, âm thanh hoặc tùy chọn video được yêu cầu.
 
-### Lịch sử Star
+#
+## 📖 Hệ thống Tài liệu Kỹ thuật Toàn diện
+
+Toàn bộ tài liệu phân tích kiến trúc, hướng dẫn phát triển và kiểm thử chuẩn công nghiệp nằm trong thư mục [`docs/`](docs/README.md):
+- [01. Tổng quan & Kiến trúc](docs/01-tong-quan/kien-truc.md): Kiến trúc hệ thống, đồ thị DAG, lưu trữ lai IndexedDB.
+- [02. Hướng dẫn Cài đặt](docs/02-cai-dat/huong-dan-cai-dat.md): Hướng dẫn nạp tiện ích Developer mode chi tiết.
+- [03. Phân tích Các Phân hệ Module](docs/03-module/graph-engine.md): Canvas Core, Graph Engine, Timeline, Muse Bridge, IndexedDB Storage.
+- [04. Chi tiết Từng Tệp Mã nguồn](docs/04-chi-tiet-ma-nguon/app-js.md): Phân tích chi tiết từng hàm và đánh giá rủi ro.
+- [05. Sơ đồ Tuần tự Luồng Xử lý](docs/05-luong-xu-ly/thuc-thi-workflow-sinh-media.md): Sơ đồ Mermaid cho các quy trình nghiệp vụ cốt lõi.
+- [06. Đặc tả Giao thức Tin nhắn API](docs/06-api/message-protocol.md): Giao thức Message Passing giữa Canvas App và Content Script.
+- [07. Hướng dẫn Phát triển & Đóng góp](docs/07-huong-dan-phat-trien/quy-trinh-dong-gop.md): Quy chuẩn lập trình, Git flow, và hướng dẫn kiểm thử.
+- [08. Phụ lục](docs/08-phu-luc/thuat-ngu.md): Bảng chú giải thuật ngữ kỹ thuật, FAQ, và lộ trình xử lý nợ kỹ thuật.
+
+## 🛠️ Công nghệ Sử dụng
+
+- **Nền tảng:** Google Chrome Extension Manifest V3 (Chromium 109+)
+- **Giao diện & Logic:** Pure Modern JavaScript (ES2022+), HTML5 Canvas 2D, SVG Bezier Edges
+- **Động cơ Xử lý Video:** FFmpeg WebAssembly (`vendor/ffmpeg/ffmpeg-core.wasm`)
+- **Hệ thống Lưu trữ:** Chrome Local Storage (Cây đồ thị JSON) & IndexedDB (Blob video/ảnh dung lượng lớn)
+- **Triết lý Zero-Dependency:** 0 thư viện npm runtime, 0 bước build, nạp trực tiếp mã nguồn.
+
+## 📁 Cấu trúc Thư mục Rút gọn
+
+```text
+museflow/
+├── manifest.json              # Bản khai báo quyền hạn WebExtension Manifest V3
+├── background.js             # Service worker xử lý sự kiện click mở tab
+├── muse-bridge.js            # Content script tự động hóa trên trang Muse.ai
+├── app.html                  # Giao diện chính Single Page Canvas & Timeline
+├── app.js                    # Khối điều khiển trung tâm (Đồ thị, Canvas, FFmpeg, Storage)
+├── styles.css                # Toàn bộ định dạng giao diện Dark theme và Responsive
+├── docs/                     # Hệ thống tài liệu kỹ thuật toàn diện chuẩn công nghiệp
+├── vendor/ffmpeg/            # Động cơ FFmpeg WebAssembly đóng gói cục bộ
+├── templates/                # Mẫu kịch bản phân cảnh chuẩn hóa cho AI storytelling
+├── icons/                    # Bộ icon nhận diện thương hiệu của extension
+└── downloads/                # Gói ZIP tiện ích cài đặt sẵn phân phối cho người dùng
+```
+
+## 🤝 Đóng góp Mã nguồn
+
+Dự án hoan nghênh mọi đóng góp! Vui lòng đọc kỹ [CONTRIBUTING.md](CONTRIBUTING.md) và [docs/07-huong-dan-phat-trien/quy-trinh-dong-gop.md](docs/07-huong-dan-phat-trien/quy-trinh-dong-gop.md) trước khi tạo Pull Request.
+
+> [!IMPORTANT]
+> **Tài liệu song hành cùng mã nguồn:** Mọi thay đổi logic code bắt buộc phải cập nhật tài liệu tương ứng trong thư mục `docs/`.
+
+## Lịch sử Star
 
 <a href="https://www.star-history.com/?repos=bynne2602%2Fmuseflow&type=date&legend=top-left">
  <picture>

@@ -1,8 +1,14 @@
 # 26Flow
 
+[![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](VERSION.txt)
+[![Manifest V3](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-green.svg)](manifest.json)
+[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-purple.svg)](LICENSE)
+[![Zero Dependency](https://img.shields.io/badge/Dependencies-0-orange.svg)](REQUIREMENTS.md)
+[![Documentation](https://img.shields.io/badge/Documentation-docs%2F-brightgreen.svg)](docs/README.md)
+
 **26Flow** is a visual workflow extension for creating images and videos with your signed-in [Muse.ai](https://muse.ai) session. Build workflows by connecting nodes on a canvas, generate media, and arrange video clips on a timeline.
 
-[Tiếng Việt](README-vi.md)
+[Tiếng Việt](README-vi.md) · [📖 Comprehensive Technical Documentation](docs/README.md)
 
 **Quick install:** [Download MuseFlow-extension.zip](https://github.com/bynne2602/museflow/raw/refs/heads/main/downloads/MuseFlow-extension.zip) · No npm install or build step required.
 
@@ -103,6 +109,51 @@ Workflows and locally stored media are kept in browser extension storage on your
 - **Muse declines a scene:** 26Flow detects refusal messages, including Vietnamese replies that say a scene cannot be created or offer to make an equivalent, and retries that scene once with a close, safer alternative prompt. It does not wait for confirmation. The retry keeps the scene's narrative role and settings; Muse.ai still determines whether the result can be generated.
 - **Timeline export fails:** reload the extension and try again. MP4 uses the bundled FFmpeg engine; WebM uses browser `MediaRecorder` and canvas capture.
 - **Output differs from requested settings:** Muse.ai controls the generated media; the requested aspect ratio, audio, and video options may not always be honored by the service.
+
+
+## 📖 Technical Documentation
+
+Comprehensive industry-standard technical documentation is available inside the [`docs/`](docs/README.md) directory:
+- [01. Architecture & Overview](docs/01-tong-quan/kien-truc.md): System architecture, DAG topology, hybrid storage.
+- [02. Installation & Setup](docs/02-cai-dat/huong-dan-cai-dat.md): Step-by-step developer and user install guides.
+- [03. Module Deep Dive](docs/03-module/graph-engine.md): Canvas Core, Graph Engine, Timeline, Muse Bridge, IndexedDB Storage.
+- [04. Source Code Analysis](docs/04-chi-tiet-ma-nguon/app-js.md): Line-by-line function documentation and risk assessments.
+- [05. Sequence Diagrams](docs/05-luong-xu-ly/thuc-thi-workflow-sinh-media.md): Mermaid sequence diagrams for core business flows.
+- [06. Message Protocol API](docs/06-api/message-protocol.md): Internal messaging protocol between Canvas App and Content Script.
+- [07. Developer Guide](docs/07-huong-dan-phat-trien/quy-trinh-dong-gop.md): Coding conventions, Git flow, and testing instructions.
+- [08. Appendices](docs/08-phu-luc/thuat-ngu.md): Technical glossary, FAQ, and technical debt roadmap.
+
+## 🛠️ Technologies & Stack
+
+- **Runtime:** Google Chrome Extension Manifest V3 (Chromium 109+)
+- **Frontend Core:** Vanilla Modern JavaScript (ES2022+), HTML5 Canvas 2D, SVG Bezier Edges
+- **Local Video Engine:** FFmpeg WebAssembly (`vendor/ffmpeg/ffmpeg-core.wasm`)
+- **Storage Subsystem:** Chrome Local Storage (Graph JSON) & IndexedDB (Media Blobs)
+- **Zero-Dependency Philosophy:** Zero npm packages, zero build tools, load unpacked directly.
+
+## 📁 Repository Structure
+
+```text
+museflow/
+├── manifest.json              # WebExtension Manifest V3 declaration
+├── background.js             # Service worker handling action click and tab focus
+├── muse-bridge.js            # Content script automating Muse.ai chat interface
+├── app.html                  # Main visual canvas, timeline dock & modal layouts
+├── app.js                    # Core controller (Graph, Canvas, Timeline, Storage)
+├── styles.css                # Dark theme UI, node port styling, responsive design
+├── docs/                     # Comprehensive technical documentation system
+├── vendor/ffmpeg/            # Bundled local FFmpeg WebAssembly engine
+├── templates/                # Strict scene script templates for AI storytelling
+├── icons/                    # Extension brand assets (16px, 32px, 48px, 128px)
+└── downloads/                # Pre-packaged unpacked ZIP distributions
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/07-huong-dan-phat-trien/quy-trinh-dong-gop.md](docs/07-huong-dan-phat-trien/quy-trinh-dong-gop.md) before submitting Pull Requests.
+
+> [!IMPORTANT]
+> **Documentation as Code:** Every code change must update its corresponding documentation in the `docs/` directory.
 
 ## Star History
 
